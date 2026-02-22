@@ -7,6 +7,10 @@ import (
 
 	"backend/config" // Sesuaikan dengan nama module di go.mod kamu
 
+	"backend/internal/handlers"
+	"backend/internal/repositories"
+	"backend/internal/services"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -21,6 +25,10 @@ func main() {
 	// 2. Inisialisasi Koneksi Database
 	config.ConnectDB()
 
+	userRepo := repositories.NewUserRepository(config.DB)
+	authService := services.NewAuthService(userRepo)
+	authHandler := handlers.NewAuthHandler(authService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -30,7 +38,6 @@ func main() {
 		// 🌟 ENDPOINT HEALTH CHECK
 		// Berfungsi untuk mengecek apakah server menyala dan database merespons
 		v1.GET("/health", func(c *gin.Context) {
-			
 			// Cek "denyut nadi" (ping) fisik ke database
 			sqlDB, err := config.DB.DB()
 			dbStatus := "connected"
@@ -46,6 +53,12 @@ func main() {
 				"database": dbStatus,
 			})
 		})
+
+		// 🌟 ENDPOINT AUTHENTICATION
+		authGroup := v1.Group("/auth")
+		{
+			authGroup.POST("/login", authHandler.Login)
+		}
 	}
 
 	// 5. Menentukan Port Server
