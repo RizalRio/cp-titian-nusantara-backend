@@ -8,6 +8,7 @@ import (
 	"backend/config" // Sesuaikan dengan nama module di go.mod kamu
 
 	"backend/internal/handlers"
+	"backend/internal/middleware"
 	"backend/internal/repositories"
 	"backend/internal/services"
 
@@ -58,6 +59,25 @@ func main() {
 		authGroup := v1.Group("/auth")
 		{
 			authGroup.POST("/login", authHandler.Login)
+		}
+
+		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
+		adminGroup := v1.Group("/admin")
+		adminGroup.Use(middleware.RequireAuth()) // Pasang satpam di sini!
+		{
+			// Contoh rute untuk mengecek profil admin yang sedang login
+			adminGroup.GET("/me", func(c *gin.Context) {
+				// Ambil user_id dari hasil ekstrak token di middleware
+				userID := c.MustGet("user_id").(string)
+
+				c.JSON(http.StatusOK, gin.H{
+					"status":  "success",
+					"message": "Akses Admin diizinkan!",
+					"data": gin.H{
+						"user_id": userID,
+					},
+				})
+			})
 		}
 	}
 

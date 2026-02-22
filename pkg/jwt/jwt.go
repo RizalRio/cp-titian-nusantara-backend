@@ -1,6 +1,8 @@
 package jwt
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -27,4 +29,29 @@ func GenerateToken(userID string, roleID string) (string, error) {
 	}
 
 	return tokenString, nil
+}
+
+// ValidateToken membongkar dan memverifikasi keabsahan JWT
+func ValidateToken(tokenString string) (jwt.MapClaims, error) {
+	secretKey := os.Getenv("JWT_SECRET")
+
+	// Parse token dan verifikasi metode algoritma signing-nya
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Pastikan algoritma yang dipakai adalah HMAC (mencegah serangan "alg: none")
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("metode signing tidak valid: %v", token.Header["alg"])
+		}
+		return []byte(secretKey), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Ekstrak isi (claims) jika token valid
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, errors.New("token tidak valid")
 }
