@@ -30,6 +30,11 @@ func main() {
 	authService := services.NewAuthService(userRepo)
 	authHandler := handlers.NewAuthHandler(authService)
 
+	// 🌟 INJEKSI DEPENDENSI BARU UNTUK PAGES
+	pageRepo := repositories.NewPageRepository(config.DB)
+	pageService := services.NewPageService(pageRepo)
+	pageHandler := handlers.NewPageHandler(pageService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -78,6 +83,16 @@ func main() {
 					},
 				})
 			})
+
+			// 🌟 CRUD ROUTES UNTUK PAGES
+			pagesGroup := adminGroup.Group("/pages")
+			{
+				pagesGroup.POST("", pageHandler.Create)
+				pagesGroup.GET("", pageHandler.GetAll)
+				pagesGroup.GET("/:id", pageHandler.GetByID)
+				pagesGroup.PUT("/:id", pageHandler.Update)
+				pagesGroup.DELETE("/:id", pageHandler.Delete)
+			}
 		}
 	}
 
