@@ -35,6 +35,11 @@ func main() {
 	pageService := services.NewPageService(pageRepo)
 	pageHandler := handlers.NewPageHandler(pageService)
 
+	// 🌟 INJEKSI DEPENDENSI UNTUK SETTINGS
+	settingRepo := repositories.NewSettingRepository(config.DB)
+	settingService := services.NewSettingService(settingRepo)
+	settingHandler := handlers.NewSettingHandler(settingService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -66,6 +71,8 @@ func main() {
 			authGroup.POST("/login", authHandler.Login)
 		}
 
+		v1.GET("/settings", settingHandler.GetPublicSettings)
+
 		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.RequireAuth()) // Pasang satpam di sini!
@@ -93,6 +100,9 @@ func main() {
 				pagesGroup.PUT("/:id", pageHandler.Update)
 				pagesGroup.DELETE("/:id", pageHandler.Delete)
 			}
+
+			// 🌟 ROUTE UNTUK UPDATE SETTINGS (Batch Update)
+			adminGroup.PUT("/settings", settingHandler.UpdateSettings)
 		}
 	}
 
