@@ -12,6 +12,9 @@ import (
 	"backend/internal/repositories"
 	"backend/internal/services"
 
+	"time"
+
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -42,6 +45,16 @@ func main() {
 
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
+
+	// 🌟 TAMBAHKAN MIDDLEWARE CORS DI SINI 🌟
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"}, // Izinkan Next.js
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// 4. Grouping Route untuk API versi 1
 	v1 := r.Group("/api/v1")
