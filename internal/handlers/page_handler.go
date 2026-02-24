@@ -60,6 +60,26 @@ func (h *PageHandler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "data": page})
 }
 
+// GetBySlug menangani request GET /api/v1/pages/:slug (Publik)
+func (h *PageHandler) GetBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	
+	page, err := h.pageService.GetPageBySlug(slug)
+	if err != nil {
+		// Jika slug tidak ada, ATAU statusnya masih 'draft', kembalikan 404 Not Found
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  "error",
+			"message": "Halaman tidak ditemukan",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   page,
+	})
+}
+
 // Update menangani PUT /admin/pages/:id
 func (h *PageHandler) Update(c *gin.Context) {
 	id := c.Param("id")

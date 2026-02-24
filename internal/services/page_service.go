@@ -58,6 +58,11 @@ func (s *PageService) GetPageByID(id string) (*models.Page, error) {
 	return s.pageRepo.FindByID(id)
 }
 
+// GetPageBySlug mengambil data halaman untuk ditampilkan ke pengunjung publik
+func (s *PageService) GetPageBySlug(slug string) (*models.Page, error) {
+	return s.pageRepo.FindBySlug(slug)
+}
+
 // UpdatePage memproses pembaruan data halaman
 func (s *PageService) UpdatePage(id string, req models.UpdatePageRequest, userID string) (*models.Page, error) {
 	// 1. Cari data lamanya dulu

@@ -33,6 +33,14 @@ func (r *PageRepository) FindByID(id string) (*models.Page, error) {
 	return &page, err
 }
 
+// FindBySlug mencari halaman publik berdasarkan slug (hanya yang berstatus 'published')
+func (r *PageRepository) FindBySlug(slug string) (*models.Page, error) {
+	var page models.Page
+	// Keamanan: Wajib menambahkan filter status = 'published'
+	err := r.DB.Where("slug = ? AND status = ?", slug, "published").First(&page).Error
+	return &page, err
+}
+
 // Update menyimpan perubahan data halaman
 func (r *PageRepository) Update(page *models.Page) error {
 	return r.DB.Save(page).Error

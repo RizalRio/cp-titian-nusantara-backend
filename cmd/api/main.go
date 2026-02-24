@@ -84,7 +84,11 @@ func main() {
 			authGroup.POST("/login", authHandler.Login)
 		}
 
+		// 🌟 ENDPOINT PUBLIK (Tanpa Middleware Token)
 		v1.GET("/settings", settingHandler.GetPublicSettings)
+		
+		// 👇 TAMBAHKAN RUTE INI DI SINI 👇
+		v1.GET("/pages/:slug", pageHandler.GetBySlug)
 
 		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
 		adminGroup := v1.Group("/admin")
