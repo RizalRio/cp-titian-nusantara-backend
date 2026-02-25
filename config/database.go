@@ -1,7 +1,6 @@
 package config
 
 import (
-	"backend/internal/models"
 	"fmt"
 	"log"
 	"os"
@@ -34,13 +33,13 @@ func ConnectDB() {
 
 	log.Println("✅ Database PostgreSQL berhasil terhubung!")
 
-	err = database.AutoMigrate(
-		// &models.Page{}, // Nanti kita aktifkan saat mengerjakan halaman
-		&models.User{},
-	)
-	if err != nil {
-		log.Fatal("❌ Gagal migrasi database: ", err)
-	}
+	// err = database.AutoMigrate(
+	// 	// &models.Page{}, // Nanti kita aktifkan saat mengerjakan halaman
+	// 	&models.User{},
+	// )
+	// if err != nil {
+	// 	log.Fatal("❌ Gagal migrasi database: ", err)
+	// }
 	
 	// Simpan instance koneksi ke variabel global
 	DB = database

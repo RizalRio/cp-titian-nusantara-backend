@@ -43,6 +43,21 @@ func main() {
 	settingService := services.NewSettingService(settingRepo)
 	settingHandler := handlers.NewSettingHandler(settingService)
 
+	// 🌟 INJEKSI DEPENDENSI UNTUK CATEGORY, TAG, POST
+	categoryRepo := repositories.NewCategoryRepository(config.DB)
+	tagRepo := repositories.NewTagRepository(config.DB)
+	postRepo := repositories.NewPostRepository(config.DB)
+
+	// Inisialisasi Service untuk Category, Tag, dan Post
+	categoryService := services.NewCategoryService(categoryRepo)
+	tagService := services.NewTagService(tagRepo)
+	postService := services.NewPostService(postRepo, config.DB) // PostService butuh koneksi DB langsung
+
+	// Inisialisasi Handler untuk Category, Tag, dan Post
+	categoryHandler := handlers.NewCategoryHandler(categoryService)
+	tagHandler := handlers.NewTagHandler(tagService)
+	postHandler := handlers.NewPostHandler(postService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -90,6 +105,12 @@ func main() {
 		// 👇 TAMBAHKAN RUTE INI DI SINI 👇
 		v1.GET("/pages/:slug", pageHandler.GetBySlug)
 
+		// 🌍 RUTING PUBLIK (Tanpa Token - Untuk dibaca oleh Pengunjung Website)
+		v1.GET("/categories", categoryHandler.GetAll)
+		v1.GET("/tags", tagHandler.GetAll)
+		v1.GET("/posts", postHandler.GetAll)      // Bisa ditambah query: ?status=published
+		v1.GET("/posts/:id", postHandler.GetByID)
+
 		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.RequireAuth()) // Pasang satpam di sini!
@@ -120,6 +141,20 @@ func main() {
 
 			// 🌟 ROUTE UNTUK UPDATE SETTINGS (Batch Update)
 			adminGroup.PUT("/settings", settingHandler.UpdateSettings)
+
+			// Endpoint Kategori & Tag Admin
+			adminGroup.POST("/categories", categoryHandler.Create)
+			adminGroup.PUT("/categories/:id", categoryHandler.Update)
+			adminGroup.DELETE("/categories/:id", categoryHandler.Delete)
+
+			adminGroup.POST("/tags", tagHandler.Create)
+			adminGroup.PUT("/tags/:id", tagHandler.Update)
+			adminGroup.DELETE("/tags/:id", tagHandler.Delete)
+
+			// Endpoint Post Admin
+			adminGroup.POST("/posts", postHandler.Create)
+			adminGroup.PUT("/posts/:id", postHandler.Update)
+			adminGroup.DELETE("/posts/:id", postHandler.Delete)
 		}
 	}
 
