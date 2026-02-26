@@ -65,6 +65,16 @@ func (s *PostService) GetPostByID(id uuid.UUID) (*models.Post, error) {
 	return s.repo.FindByID(id)
 }
 
+// 🌟 GET POST BY SLUG
+func (s *PostService) GetPostBySlug(slug string) (*models.Post, error) {
+	// Panggil repository
+	post, err := s.repo.FindBySlug(slug)
+	if err != nil {
+		return nil, errors.New("artikel tidak ditemukan atau belum dipublikasikan")
+	}
+	return post, nil
+}
+
 func (s *PostService) UpdatePost(id uuid.UUID, req models.UpdatePostRequest) (*models.Post, error) {
 	post, err := s.repo.FindByID(id)
 	if err != nil {

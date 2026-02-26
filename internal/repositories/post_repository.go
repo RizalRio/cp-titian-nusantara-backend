@@ -75,6 +75,21 @@ func (r *PostRepository) FindByID(id uuid.UUID) (*models.Post, error) {
 	return &post, err
 }
 
+// 🌟 READ ONE BY SLUG (Untuk halaman publik SEO-friendly)
+func (r *PostRepository) FindBySlug(slug string) (*models.Post, error) {
+	var post models.Post
+	
+	// Preload digunakan untuk menarik relasi secara bersamaan (Eager Loading)
+	err := r.DB.
+		Preload("Category").
+		Preload("Author").
+		Preload("Tags").
+		Where("status = ?", "published"). // Pastikan hanya artikel yang sudah di-publish yang bisa diakses publik
+		First(&post, "slug = ?", slug).Error
+		
+	return &post, err
+}
+
 func (r *PostRepository) Delete(id uuid.UUID) error {
 	return r.DB.Delete(&models.Post{}, "id = ?", id).Error
 }

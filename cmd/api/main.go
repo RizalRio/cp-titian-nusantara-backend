@@ -109,7 +109,8 @@ func main() {
 		v1.GET("/categories", categoryHandler.GetAll)
 		v1.GET("/tags", tagHandler.GetAll)
 		v1.GET("/posts", postHandler.GetAll)      // Bisa ditambah query: ?status=published
-		v1.GET("/posts/:id", postHandler.GetByID)
+		v1.GET("/posts/:id", postHandler.GetByID) // Untuk admin/editor
+		v1.GET("/posts/slug/:slug", postHandler.GetBySlug) // Untuk halaman detail pembaca
 
 		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
 		adminGroup := v1.Group("/admin")

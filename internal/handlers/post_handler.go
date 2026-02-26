@@ -94,6 +94,28 @@ func (h *PostHandler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "data": post})
 }
 
+// 🌟 GET BY SLUG (Untuk halaman detail pembaca)
+func (h *PostHandler) GetBySlug(c *gin.Context) {
+	// Menangkap parameter slug dari URL (contoh: /api/v1/posts/slug/membangun-desa)
+	slug := c.Param("slug")
+	
+	if slug == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Slug tidak boleh kosong"})
+		return
+	}
+
+	post, err := h.service.GetPostBySlug(slug)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"status": "error", "message": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success", 
+		"data": post,
+	})
+}
+
 // 🌟 UPDATE: Memperbarui artikel
 func (h *PostHandler) Update(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
