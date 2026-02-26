@@ -58,8 +58,14 @@ func main() {
 	tagHandler := handlers.NewTagHandler(tagService)
 	postHandler := handlers.NewPostHandler(postService)
 
+	mediaHandler := handlers.NewMediaHandler()
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
+
+	// 🌟 EKSPOS FOLDER STATIS
+	// Akses file lokal di ./uploads akan diarahkan ke route /uploads
+	r.Static("/uploads", "./uploads")
 
 	// 🌟 TAMBAHKAN MIDDLEWARE CORS DI SINI 🌟
 	r.Use(cors.New(cors.Config{
@@ -156,6 +162,8 @@ func main() {
 			adminGroup.POST("/posts", postHandler.Create)
 			adminGroup.PUT("/posts/:id", postHandler.Update)
 			adminGroup.DELETE("/posts/:id", postHandler.Delete)
+
+			adminGroup.POST("/media/upload", mediaHandler.UploadImage)
 		}
 	}
 

@@ -62,6 +62,7 @@ func (r *PostRepository) FindAll(params models.PostQueryParams) ([]models.Post, 
 		Preload("Category").
 		Preload("Author").
 		Preload("Tags").
+		Preload("Media").
 		Offset(offset).
 		Limit(params.Limit).
 		Find(&posts).Error
@@ -71,7 +72,12 @@ func (r *PostRepository) FindAll(params models.PostQueryParams) ([]models.Post, 
 
 func (r *PostRepository) FindByID(id uuid.UUID) (*models.Post, error) {
 	var post models.Post
-	err := r.DB.Preload("Category").Preload("Author").Preload("Tags").First(&post, "id = ?", id).Error
+	err := r.DB.
+		Preload("Category").
+		Preload("Author").
+		Preload("Tags").
+		Preload("Media").
+		First(&post, "id = ?", id).Error
 	return &post, err
 }
 
@@ -84,6 +90,7 @@ func (r *PostRepository) FindBySlug(slug string) (*models.Post, error) {
 		Preload("Category").
 		Preload("Author").
 		Preload("Tags").
+		Preload("Media").
 		Where("status = ?", "published"). // Pastikan hanya artikel yang sudah di-publish yang bisa diakses publik
 		First(&post, "slug = ?", slug).Error
 		

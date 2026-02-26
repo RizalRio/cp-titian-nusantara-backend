@@ -27,4 +27,6 @@ type Post struct {
 	Author   User     `gorm:"foreignKey:AuthorID" json:"author"` 
 	// GORM otomatis mengelola tabel pivot `post_tags` untuk relasi Many-to-Many ini
 	Tags     []Tag    `gorm:"many2many:post_tags;" json:"tags"`
+	// Relasi Polymorphic untuk Media Assets (Gambar, Video, dll)
+	Media []MediaAsset `gorm:"polymorphic:Model;polymorphicValue:Post" json:"media"`
 }

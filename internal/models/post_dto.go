@@ -11,6 +11,8 @@ type CreatePostRequest struct {
 	Status     string      `json:"status" binding:"required,oneof=draft published"`
 	// Menerima array UUID dari Tags yang dipilih di frontend
 	TagIDs     []uuid.UUID `json:"tag_ids"` 
+	// ThumbnailURL bisa digunakan untuk menyimpan URL gambar utama yang dipilih dari Media Assets
+	ThumbnailURL string      `json:"thumbnail_url"`
 }
 
 // DTO untuk form Edit Article dari Admin
@@ -21,6 +23,7 @@ type UpdatePostRequest struct {
 	Content    string      `json:"content"`
 	Status     string      `json:"status" binding:"omitempty,oneof=draft published"`
 	TagIDs     []uuid.UUID `json:"tag_ids"`
+	ThumbnailURL string      `json:"thumbnail_url"`
 }
 
 // 🌟 DTO Khusus untuk URL Query (Pagination, Filter, & Sort)
