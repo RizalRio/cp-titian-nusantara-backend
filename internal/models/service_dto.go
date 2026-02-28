@@ -10,6 +10,9 @@ type CreateServiceRequest struct {
 	Status           string `json:"status" binding:"required,oneof=draft published"`
 	// ThumbnailURL akan ditangkap oleh Service untuk disimpan ke media_assets
 	ThumbnailURL     string `json:"thumbnail_url"` 
+	ImpactPoints []string `json:"impact_points"`
+	CTAText      string   `json:"cta_text"`
+	CTALink      string   `json:"cta_link"`
 }
 
 // UpdateServiceRequest memvalidasi payload saat Admin memperbarui layanan
@@ -21,6 +24,9 @@ type UpdateServiceRequest struct {
 	IsFlagship       *bool  `json:"is_flagship"` // Menggunakan pointer agar bisa mendeteksi nilai false
 	Status           string `json:"status" binding:"omitempty,oneof=draft published"`
 	ThumbnailURL     string `json:"thumbnail_url"`
+	ImpactPoints []string `json:"impact_points"`
+	CTAText      string   `json:"cta_text"`
+	CTALink      string   `json:"cta_link"`
 }
 
 // ServiceQueryParams menangkap parameter URL untuk fitur Filter dan Pagination

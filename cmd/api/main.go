@@ -65,6 +65,11 @@ func main() {
 	serviceEcosystemService := services.NewServiceEcosystemService(serviceRepo, config.DB)
 	serviceHandler := handlers.NewServiceHandler(serviceEcosystemService)
 
+	// 🌟 INISIALISASI PROJECT (Jejak Karya)
+	projectRepo := repositories.NewProjectRepository(config.DB)
+	projectService := services.NewProjectService(projectRepo, config.DB)
+	projectHandler := handlers.NewProjectHandler(projectService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -128,6 +133,11 @@ func main() {
 		v1.GET("/services/:id", serviceHandler.GetByID)
 		v1.GET("/services/slug/:slug", serviceHandler.GetBySlug)
 
+		// 🌟 ENDPOINT PROJECT
+		v1.GET("/projects", projectHandler.GetAll)
+		v1.GET("/projects/:id", projectHandler.GetByID)
+		v1.GET("/projects/slug/:slug", projectHandler.GetBySlug)
+
 		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.RequireAuth()) // Pasang satpam di sini!
@@ -179,6 +189,11 @@ func main() {
 			adminGroup.POST("/services", serviceHandler.Create)
 			adminGroup.PUT("/services/:id", serviceHandler.Update)
 			adminGroup.DELETE("/services/:id", serviceHandler.Delete)
+
+			// 🌟 CRUD PROJECT
+			adminGroup.POST("/projects", projectHandler.Create)
+			adminGroup.PUT("/projects/:id", projectHandler.Update)
+			adminGroup.DELETE("/projects/:id", projectHandler.Delete)
 		}
 	}
 

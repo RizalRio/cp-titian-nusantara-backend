@@ -25,12 +25,16 @@ func NewServiceEcosystemService(repo *repositories.ServiceRepository, db *gorm.D
 func (s *ServiceEcosystemService) CreateService(req models.CreateServiceRequest) (*models.Service, error) {
 	service := models.Service{
 		Name:             req.Name,
-		Slug:             GenerateSlug(req.Name), // Asumsi fungsi GenerateSlug ada di utils.go
+		Slug:             GenerateSlug(req.Name), 
 		ShortDescription: req.ShortDescription,
 		Description:      req.Description,
 		IconName:         req.IconName,
 		IsFlagship:       req.IsFlagship,
 		Status:           req.Status,
+		// 🌟 TAMBAHAN BARU
+		ImpactPoints:     req.ImpactPoints, 
+		CTAText:          req.CTAText,
+		CTALink:          req.CTALink,
 	}
 
 	// Injeksi Media Asset (Thumbnail)
@@ -87,6 +91,10 @@ func (s *ServiceEcosystemService) UpdateService(id uuid.UUID, req models.UpdateS
 	if req.IsFlagship != nil {
 		service.IsFlagship = *req.IsFlagship
 	}
+
+	if req.ImpactPoints != nil { service.ImpactPoints = req.ImpactPoints }
+	if req.CTAText != "" { service.CTAText = req.CTAText }
+	if req.CTALink != "" { service.CTALink = req.CTALink }
 
 	// 🔒 DATABASE TRANSACTION
 	err = s.db.Transaction(func(tx *gorm.DB) error {
