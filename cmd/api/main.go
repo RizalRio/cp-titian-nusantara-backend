@@ -60,6 +60,11 @@ func main() {
 
 	mediaHandler := handlers.NewMediaHandler()
 
+	// 🌟 INISIALISASI EKOSISTEM LAYANAN
+	serviceRepo := repositories.NewServiceRepository(config.DB)
+	serviceEcosystemService := services.NewServiceEcosystemService(serviceRepo, config.DB)
+	serviceHandler := handlers.NewServiceHandler(serviceEcosystemService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -118,6 +123,11 @@ func main() {
 		v1.GET("/posts/:id", postHandler.GetByID) // Untuk admin/editor
 		v1.GET("/posts/slug/:slug", postHandler.GetBySlug) // Untuk halaman detail pembaca
 
+		// 🌟 ENDPOINT LAYANAN (Bisa diakses publik untuk melihat daftar layanan, tapi hanya admin yang bisa membuat/mengedit)
+		v1.GET("/services", serviceHandler.GetAll)
+		v1.GET("/services/:id", serviceHandler.GetByID)
+		v1.GET("/services/slug/:slug", serviceHandler.GetBySlug)
+
 		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.RequireAuth()) // Pasang satpam di sini!
@@ -164,6 +174,11 @@ func main() {
 			adminGroup.DELETE("/posts/:id", postHandler.Delete)
 
 			adminGroup.POST("/media/upload", mediaHandler.UploadImage)
+
+			// 🌟 CRUD EKOSISTEM LAYANAN
+			adminGroup.POST("/services", serviceHandler.Create)
+			adminGroup.PUT("/services/:id", serviceHandler.Update)
+			adminGroup.DELETE("/services/:id", serviceHandler.Delete)
 		}
 	}
 
