@@ -6,6 +6,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type ProjectMetricRequest struct {
+	MetricKey   string  `json:"metric_key"`
+	MetricLabel string  `json:"metric_label" binding:"required"`
+	MetricValue float64 `json:"metric_value" binding:"required"`
+	MetricUnit  string  `json:"metric_unit"`
+	Order       int     `json:"order"`
+}
+
 type CreateProjectRequest struct {
 	ServiceID   uuid.UUID  `json:"service_id" binding:"required"`
 	Title       string     `json:"title" binding:"required,min=3"`
@@ -19,6 +27,7 @@ type CreateProjectRequest struct {
 	// Karena Jejak Karya butuh visual kuat, kita bisa tangkap Thumbnail dan Galeri
 	ThumbnailURL string   `json:"thumbnail_url"` 
 	GalleryURLs  []string `json:"gallery_urls"` 
+	Metrics      []ProjectMetricRequest `json:"metrics"`
 }
 
 type UpdateProjectRequest struct {
@@ -33,6 +42,7 @@ type UpdateProjectRequest struct {
 	IsFeatured  *bool      `json:"is_featured"`
 	ThumbnailURL string    `json:"thumbnail_url"`
 	GalleryURLs  []string  `json:"gallery_urls"`
+	Metrics      []ProjectMetricRequest `json:"metrics"`
 }
 
 type ProjectQueryParams struct {

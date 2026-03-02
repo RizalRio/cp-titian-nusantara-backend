@@ -40,6 +40,7 @@ func (r *ProjectRepository) FindAll(params models.ProjectQueryParams) ([]models.
 		Order("is_featured desc, created_at desc").
 		Preload("Service"). // 🌟 Muat data layanan induk
 		Preload("Media").   // 🌟 Muat thumbnail dan galeri
+		Preload("Metrics").
 		Offset(offset).
 		Limit(params.Limit).
 		Find(&projects).Error
@@ -49,13 +50,13 @@ func (r *ProjectRepository) FindAll(params models.ProjectQueryParams) ([]models.
 
 func (r *ProjectRepository) FindByID(id uuid.UUID) (*models.Project, error) {
 	var project models.Project
-	err := r.DB.Preload("Service").Preload("Media").First(&project, "id = ?", id).Error
+	err := r.DB.Preload("Service").Preload("Media").Preload("Metrics").First(&project, "id = ?", id).Error
 	return &project, err
 }
 
 func (r *ProjectRepository) FindBySlug(slug string) (*models.Project, error) {
 	var project models.Project
-	err := r.DB.Where("status = ?", "published").Preload("Service").Preload("Media").First(&project, "slug = ?", slug).Error
+	err := r.DB.Where("status = ?", "published").Preload("Service").Preload("Media").Preload("Metrics").First(&project, "slug = ?", slug).Error
 	return &project, err
 }
 

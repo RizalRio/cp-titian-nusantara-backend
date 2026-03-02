@@ -24,6 +24,7 @@ type Project struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relasi
-	Service Service      `gorm:"foreignKey:ServiceID" json:"service"`
-	Media   []MediaAsset `gorm:"polymorphic:Model;polymorphicValue:Project" json:"media"` // 🌟 Mendukung multiple images (galeri)
+	Service Service         `gorm:"foreignKey:ServiceID" json:"service"`
+	Media   []MediaAsset    `gorm:"polymorphic:Model;polymorphicValue:Project" json:"media"`
+	Metrics []ProjectMetric `gorm:"foreignKey:ProjectID;constraint:OnDelete:CASCADE" json:"metrics"`	
 }

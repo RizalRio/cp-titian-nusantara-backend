@@ -35,6 +35,20 @@ func (s *ProjectService) CreateProject(req models.CreateProjectRequest) (*models
 		IsFeatured:  req.IsFeatured,
 	}
 
+	var metrics []models.ProjectMetric
+	for _, m := range req.Metrics {
+		metrics = append(metrics, models.ProjectMetric{
+			MetricKey:   m.MetricKey,
+			MetricLabel: m.MetricLabel,
+			MetricValue: m.MetricValue,
+			MetricUnit:  m.MetricUnit,
+			Order:       m.Order,
+		})
+	}
+	if len(metrics) > 0 {
+		project.Metrics = metrics
+	}
+
 	// 🌟 INJEKSI MEDIA (Thumbnail & Gallery)
 	var mediaAssets []models.MediaAsset
 	
@@ -88,6 +102,28 @@ func (s *ProjectService) UpdateProject(id uuid.UUID, req models.UpdateProjectReq
 	// 🔒 DATABASE TRANSACTION UNTUK MEDIA POLIMORFIK
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(project).Error; err != nil { return err }
+
+		if req.Metrics != nil {
+			// Hapus semua metrik lama
+			if err := tx.Where("project_id = ?", project.ID).Delete(&models.ProjectMetric{}).Error; err != nil {
+				return err
+			}
+			
+			// Masukkan metrik baru
+			for _, m := range req.Metrics {
+				newMetric := models.ProjectMetric{
+					ProjectID:   project.ID,
+					MetricKey:   m.MetricKey,
+					MetricLabel: m.MetricLabel,
+					MetricValue: m.MetricValue,
+					MetricUnit:  m.MetricUnit,
+					Order:       m.Order,
+				}
+				if err := tx.Create(&newMetric).Error; err != nil {
+					return err
+				}
+			}
+		}
 
 		// 1. Tangani Thumbnail (Sama seperti Service/Post)
 		if req.ThumbnailURL != "" {
