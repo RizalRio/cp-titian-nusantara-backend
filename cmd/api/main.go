@@ -125,7 +125,7 @@ func main() {
 		}
 
 		// 🌟 ENDPOINT PUBLIK (Tanpa Middleware Token)
-		v1.GET("/settings", settingHandler.GetPublicSettings)
+		v1.GET("/settings", settingHandler.GetSettings)
 		
 		// 👇 TAMBAHKAN RUTE INI DI SINI 👇
 		v1.GET("/pages/:slug", pageHandler.GetBySlug)

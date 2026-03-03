@@ -15,18 +15,23 @@ func NewSettingRepository(db *gorm.DB) *SettingRepository {
 	return &SettingRepository{DB: db}
 }
 
-// GetAll mengambil semua pengaturan (Bisa diakses publik oleh Frontend)
-func (r *SettingRepository) GetAll() ([]models.SiteSetting, error) {
+// Mengambil semua baris pengaturan
+func (r *SettingRepository) GetAllSettings() ([]models.SiteSetting, error) {
 	var settings []models.SiteSetting
 	err := r.DB.Find(&settings).Error
 	return settings, err
 }
 
-// UpsertBatch memperbarui banyak pengaturan sekaligus
-func (r *SettingRepository) UpsertBatch(settings []models.SiteSetting) error {
-	// Jika "key" bentrok (sudah ada), maka update "value" dan "updated_at"
+// Upsert: Update jika Key sudah ada, Insert jika belum ada
+func (r *SettingRepository) UpsertSetting(key, value, settingType string) error {
+	setting := models.SiteSetting{
+		Key:   key,
+		Value: value,
+		Type:  settingType,
+	}
+
 	return r.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "key"}},
-		DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
-	}).Create(&settings).Error
+		Columns:   []clause.Column{{Name: "key"}}, // Jika terjadi konflik pada 'key'
+		DoUpdates: clause.AssignmentColumns([]string{"value", "type", "updated_at"}), // Update kolom ini
+	}).Create(&setting).Error
 }

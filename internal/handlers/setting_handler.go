@@ -9,42 +9,38 @@ import (
 )
 
 type SettingHandler struct {
-	settingService *services.SettingService
+	service *services.SettingService
 }
 
 func NewSettingHandler(service *services.SettingService) *SettingHandler {
-	return &SettingHandler{settingService: service}
+	return &SettingHandler{service: service}
 }
 
-// GetPublicSettings menangani GET /api/v1/settings (Tanpa Token)
-func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
-	settings, err := h.settingService.GetAllSettings()
+// Publik & Admin GET API
+func (h *SettingHandler) GetSettings(c *gin.Context) {
+	settings, err := h.service.GetSettingsObject()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal memuat pengaturan situs"})
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal mengambil pengaturan"})
 		return
 	}
-
-	// Format data menjadi objek (Map) agar Frontend Next.js lebih mudah membacanya
-	// Contoh: { "contact_email": "halo@...", "footer_manifesto": "..." }
-	formattedSettings := make(map[string]string)
-	for _, s := range settings {
-		formattedSettings[s.Key] = s.Value
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success", "data": formattedSettings})
+	c.JSON(http.StatusOK, gin.H{"status": "success", "data": settings})
 }
 
-// UpdateSettings menangani PUT /api/v1/admin/settings (Wajib Token)
+// Admin PUT API
 func (h *SettingHandler) UpdateSettings(c *gin.Context) {
-	// Ingat, DTO kita adalah array of object JSON
-	var req []models.UpsertSettingRequest
-
+	var req models.SiteSettingsDTO
+	
+	// Bind JSON flat object dari Frontend ke Struct DTO
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Format input tidak valid"})
+		// 🌟 KITA TAMBAHKAN err.Error() AGAR DETAILNYA MUNCUL DI FRONTEND
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error", 
+			"message": "Format data tidak valid. Detail: " + err.Error(),
+		})
 		return
 	}
 
-	if err := h.settingService.UpdateSettings(req); err != nil {
+	if err := h.service.UpdateSettings(req); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menyimpan pengaturan"})
 		return
 	}
