@@ -70,6 +70,11 @@ func main() {
 	projectService := services.NewProjectService(projectRepo, config.DB)
 	projectHandler := handlers.NewProjectHandler(projectService)
 
+	// 🌟 INISIALISASI JEJAK KARYA (PORTFOLIOS) LINTAS SEKTOR
+	portfolioRepo := repositories.NewPortfolioRepository(config.DB)
+	portfolioService := services.NewPortfolioService(portfolioRepo, config.DB)
+	portfolioHandler := handlers.NewPortfolioHandler(portfolioService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -138,6 +143,11 @@ func main() {
 		v1.GET("/projects/:id", projectHandler.GetByID)
 		v1.GET("/projects/slug/:slug", projectHandler.GetBySlug)
 
+		// 🌟 ENDPOINT PORTFOLIO (Jejak Karya)
+		v1.GET("/portfolios", portfolioHandler.GetAll)
+		v1.GET("/portfolios/:id", portfolioHandler.GetByID)
+		v1.GET("/portfolios/slug/:slug", portfolioHandler.GetBySlug)
+
 		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.RequireAuth()) // Pasang satpam di sini!
@@ -194,6 +204,11 @@ func main() {
 			adminGroup.POST("/projects", projectHandler.Create)
 			adminGroup.PUT("/projects/:id", projectHandler.Update)
 			adminGroup.DELETE("/projects/:id", projectHandler.Delete)
+
+			// 🌟 CRUD JEJAK KARYA
+			adminGroup.POST("/portfolios", portfolioHandler.Create)
+			adminGroup.PUT("/portfolios/:id", portfolioHandler.Update)
+			adminGroup.DELETE("/portfolios/:id", portfolioHandler.Delete)
 		}
 	}
 
