@@ -75,6 +75,10 @@ func main() {
 	portfolioService := services.NewPortfolioService(portfolioRepo, config.DB)
 	portfolioHandler := handlers.NewPortfolioHandler(portfolioService)
 
+	contactRepo := repositories.NewContactRepository(config.DB)
+	contactService := services.NewContactService(contactRepo)
+	contactHandler := handlers.NewContactHandler(contactService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -147,6 +151,10 @@ func main() {
 		v1.GET("/portfolios", portfolioHandler.GetAll)
 		v1.GET("/portfolios/:id", portfolioHandler.GetByID)
 		v1.GET("/portfolios/slug/:slug", portfolioHandler.GetBySlug)
+		
+		// 🌟 ENDPOINT KONTAK
+		v1.POST("/contact-messages", contactHandler.SubmitMessage)
+		v1.POST("/collaboration-requests", contactHandler.SubmitCollaboration)
 
 		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
 		adminGroup := v1.Group("/admin")
@@ -209,6 +217,16 @@ func main() {
 			adminGroup.POST("/portfolios", portfolioHandler.Create)
 			adminGroup.PUT("/portfolios/:id", portfolioHandler.Update)
 			adminGroup.DELETE("/portfolios/:id", portfolioHandler.Delete)
+
+			// 🌟 MANAJEMEN PESAN UMUM
+			adminGroup.GET("/contact-messages", contactHandler.GetAllMessages)
+			adminGroup.PUT("/contact-messages/:id/read", contactHandler.MarkMessageAsRead)
+			adminGroup.DELETE("/contact-messages/:id", contactHandler.DeleteMessage)
+
+			// 🌟 MANAJEMEN KOLABORASI
+			adminGroup.GET("/collaboration-requests", contactHandler.GetAllCollaborations)
+			adminGroup.PUT("/collaboration-requests/:id/status", contactHandler.UpdateCollaborationStatus)
+			adminGroup.DELETE("/collaboration-requests/:id", contactHandler.DeleteCollaboration)
 		}
 	}
 
