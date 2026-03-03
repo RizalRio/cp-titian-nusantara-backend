@@ -110,20 +110,33 @@ func (s *PortfolioService) UpdatePortfolio(id uuid.UUID, req models.UpdatePortfo
 			var existing models.MediaAsset
 			err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Portfolio", portfolio.ID, "thumbnail").First(&existing).Error
 			if err == nil {
-				existing.FileURL = req.ThumbnailURL
-				if err := tx.Save(&existing).Error; err != nil { return err }
+				// 🌟 Jika URL berubah, hapus file lama secara eksplisit
+				if existing.FileURL != req.ThumbnailURL {
+					tx.Delete(&existing) // Ini akan memicu AfterDelete Hook
+					tx.Create(&models.MediaAsset{ModelType: "Portfolio", ModelID: portfolio.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
+				}
 			} else if errors.Is(err, gorm.ErrRecordNotFound) {
 				tx.Create(&models.MediaAsset{ModelType: "Portfolio", ModelID: portfolio.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
 			}
 		} else {
-			tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Portfolio", portfolio.ID, "thumbnail").Delete(&models.MediaAsset{})
+			// 🌟 Ubah Batch Delete menjadi Find and Delete
+			var oldThumb models.MediaAsset
+			if err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Portfolio", portfolio.ID, "thumbnail").First(&oldThumb).Error; err == nil {
+				tx.Delete(&oldThumb) // Memicu Hook
+			}
 		}
 
 		// --- B. TANGANI GALERI (Delete and Insert) ---
 		if req.GalleryURLs != nil {
-			if err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Portfolio", portfolio.ID, "gallery").Delete(&models.MediaAsset{}).Error; err != nil {
-				return err
+			var oldGalleries []models.MediaAsset
+			tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Portfolio", portfolio.ID, "gallery").Find(&oldGalleries)
+			
+			// 🌟 Hapus satu per satu agar Hook AfterDelete berjalan
+			for _, m := range oldGalleries {
+				tx.Delete(&m)
 			}
+			
+			// Masukkan galeri baru
 			for _, url := range req.GalleryURLs {
 				if url != "" {
 					if err := tx.Create(&models.MediaAsset{ModelType: "Portfolio", ModelID: portfolio.ID, MediaType: "gallery", FileURL: url}).Error; err != nil {
@@ -182,5 +195,14 @@ func (s *PortfolioService) GetPortfolioBySlug(slug string) (*models.Portfolio, e
 
 // 🌟 DELETE PORTFOLIO
 func (s *PortfolioService) DeletePortfolio(id uuid.UUID) error {
-	return s.repo.Delete(id)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Cari dan hapus semua media terkait Program ini
+		var media []models.MediaAsset
+		tx.Where("model_type = ? AND model_id = ?", "Project", id).Find(&media)
+		for _, m := range media {
+			tx.Delete(&m) // Memicu Hook Hapus Fisik
+		}
+		
+		return s.repo.Delete(id)
+	})
 }

@@ -130,28 +130,32 @@ func (s *ProjectService) UpdateProject(id uuid.UUID, req models.UpdateProjectReq
 			var existing models.MediaAsset
 			err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Project", project.ID, "thumbnail").First(&existing).Error
 			if err == nil {
-				existing.FileURL = req.ThumbnailURL
-				if err := tx.Save(&existing).Error; err != nil { return err }
-			} else if errors.Is(err, gorm.ErrRecordNotFound) {
+				if existing.FileURL != req.ThumbnailURL {
+					tx.Delete(&existing)
+					tx.Create(&models.MediaAsset{ModelType: "Project", ModelID: project.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
+				}
+			} else {
 				tx.Create(&models.MediaAsset{ModelType: "Project", ModelID: project.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
 			}
 		} else {
-			tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Project", project.ID, "thumbnail").Delete(&models.MediaAsset{})
+			var oldThumb models.MediaAsset
+			if err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Project", project.ID, "thumbnail").First(&oldThumb).Error; err == nil {
+				tx.Delete(&oldThumb)
+			}
 		}
 
 		// 2. Tangani Gallery (Delete and Insert agar bersih)
 		if req.GalleryURLs != nil {
-			// Hapus semua galeri lama
-			if err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Project", project.ID, "gallery").Delete(&models.MediaAsset{}).Error; err != nil {
-				return err
+			var oldGalleries []models.MediaAsset
+			tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Project", project.ID, "gallery").Find(&oldGalleries)
+			
+			for _, m := range oldGalleries {
+				tx.Delete(&m) // Memicu Hook
 			}
 			
-			// Masukkan galeri baru
 			for _, url := range req.GalleryURLs {
 				if url != "" {
-					if err := tx.Create(&models.MediaAsset{ModelType: "Project", ModelID: project.ID, MediaType: "gallery", FileURL: url}).Error; err != nil {
-						return err
-					}
+					tx.Create(&models.MediaAsset{ModelType: "Project", ModelID: project.ID, MediaType: "gallery", FileURL: url})
 				}
 			}
 		}
@@ -176,5 +180,14 @@ func (s *ProjectService) GetProjectBySlug(slug string) (*models.Project, error) 
 }
 
 func (s *ProjectService) DeleteProject(id uuid.UUID) error {
-	return s.repo.Delete(id)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Cari dan hapus semua media terkait Program ini
+		var media []models.MediaAsset
+		tx.Where("model_type = ? AND model_id = ?", "Project", id).Find(&media)
+		for _, m := range media {
+			tx.Delete(&m) // Memicu Hook Hapus Fisik
+		}
+		
+		return s.repo.Delete(id)
+	})
 }

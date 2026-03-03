@@ -103,26 +103,21 @@ func (s *ServiceEcosystemService) UpdateService(id uuid.UUID, req models.UpdateS
 
 		// 2. Logika Update Thumbnail Polimorfik
 		if req.ThumbnailURL != "" {
-			var existingThumbnail models.MediaAsset
-			err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Service", service.ID, "thumbnail").First(&existingThumbnail).Error
-
+			var existing models.MediaAsset
+			err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Service", service.ID, "thumbnail").First(&existing).Error
 			if err == nil {
-				existingThumbnail.FileURL = req.ThumbnailURL
-				if err := tx.Save(&existingThumbnail).Error; err != nil { return err }
-			} else if errors.Is(err, gorm.ErrRecordNotFound) {
-				newThumbnail := models.MediaAsset{
-					ModelType: "Service",
-					ModelID:   service.ID,
-					MediaType: "thumbnail",
-					FileURL:   req.ThumbnailURL,
+				if existing.FileURL != req.ThumbnailURL {
+					tx.Delete(&existing) // Memicu Hook
+					tx.Create(&models.MediaAsset{ModelType: "Service", ModelID: service.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
 				}
-				if err := tx.Create(&newThumbnail).Error; err != nil { return err }
 			} else {
-				return err
+				tx.Create(&models.MediaAsset{ModelType: "Service", ModelID: service.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
 			}
 		} else {
-			// Jika req.ThumbnailURL kosong, artinya Admin menghapus gambar. Kita hapus dari database.
-			tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Service", service.ID, "thumbnail").Delete(&models.MediaAsset{})
+			var oldThumb models.MediaAsset
+			if err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Service", service.ID, "thumbnail").First(&oldThumb).Error; err == nil {
+				tx.Delete(&oldThumb) // Memicu Hook
+			}
 		}
 
 		return nil
@@ -133,5 +128,14 @@ func (s *ServiceEcosystemService) UpdateService(id uuid.UUID, req models.UpdateS
 }
 
 func (s *ServiceEcosystemService) DeleteService(id uuid.UUID) error {
-	return s.repo.Delete(id)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Cari dan hapus semua media terkait Layanan ini
+		var media []models.MediaAsset
+		tx.Where("model_type = ? AND model_id = ?", "Service", id).Find(&media)
+		for _, m := range media {
+			tx.Delete(&m) // Memicu Hook Hapus Fisik
+		}
+		
+		return s.repo.Delete(id)
+	})
 }

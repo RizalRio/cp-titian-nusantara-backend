@@ -117,25 +117,20 @@ func (s *PostService) UpdatePost(id uuid.UUID, req models.UpdatePostRequest) (*m
 
 		// 🌟 LOGIKA UPDATE THUMBNAIL POLIMORFIK
 		if req.ThumbnailURL != "" {
-			// 1. Cek apakah artikel ini sudah punya thumbnail lama
-			var existingThumbnail models.MediaAsset
-			err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Post", post.ID, "thumbnail").First(&existingThumbnail).Error
-
+			var existing models.MediaAsset
+			err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Post", post.ID, "thumbnail").First(&existing).Error
 			if err == nil {
-				// Jika ada, update URL-nya
-				existingThumbnail.FileURL = req.ThumbnailURL
-				if err := tx.Save(&existingThumbnail).Error; err != nil { return err }
-			} else if errors.Is(err, gorm.ErrRecordNotFound) {
-				// Jika belum punya, buat baru
-				newThumbnail := models.MediaAsset{
-					ModelType: "Post",
-					ModelID:   post.ID,
-					MediaType: "thumbnail",
-					FileURL:   req.ThumbnailURL,
+				if existing.FileURL != req.ThumbnailURL {
+					tx.Delete(&existing) // Memicu Hook Hapus Fisik
+					tx.Create(&models.MediaAsset{ModelType: "Post", ModelID: post.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
 				}
-				if err := tx.Create(&newThumbnail).Error; err != nil { return err }
-			} else {
-				return err // Error database lainnya
+			} else if errors.Is(err, gorm.ErrRecordNotFound) {
+				tx.Create(&models.MediaAsset{ModelType: "Post", ModelID: post.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
+			}
+		} else {
+			var oldThumb models.MediaAsset
+			if err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Post", post.ID, "thumbnail").First(&oldThumb).Error; err == nil {
+				tx.Delete(&oldThumb) // Memicu Hook Hapus Fisik
 			}
 		}
 
@@ -147,5 +142,18 @@ func (s *PostService) UpdatePost(id uuid.UUID, req models.UpdatePostRequest) (*m
 }
 
 func (s *PostService) DeletePost(id uuid.UUID) error {
-	return s.repo.Delete(id)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Cari dan hapus media secara eksplisit agar Hook berjalan
+		var media []models.MediaAsset
+		tx.Where("model_type = ? AND model_id = ?", "Post", id).Find(&media)
+		for _, m := range media {
+			tx.Delete(&m) // Memicu Hook Hapus Fisik
+		}
+		
+		// 2. Hapus relasi tags (jika tidak cascade)
+		tx.Exec("DELETE FROM post_tags WHERE post_id = ?", id)
+		
+		// 3. Baru panggil repository untuk menghapus Post
+		return s.repo.Delete(id)
+	})
 }

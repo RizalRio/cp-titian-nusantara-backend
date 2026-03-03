@@ -1,9 +1,11 @@
 package models
 
-import (
+import ( // Sesuaikan dengan path module Anda
+	"backend/pkg/utils"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type MediaAsset struct {
@@ -15,4 +17,9 @@ type MediaAsset struct {
 	Caption   string    `gorm:"type:text" json:"caption"`
 	Order     int       `gorm:"default:0" json:"order"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+func (m *MediaAsset) AfterDelete(tx *gorm.DB) (err error) {
+	utils.DeletePhysicalFile(m.FileURL)
+	return nil
 }
