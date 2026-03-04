@@ -79,6 +79,10 @@ func main() {
 	contactService := services.NewContactService(contactRepo)
 	contactHandler := handlers.NewContactHandler(contactService)
 
+	activityLogRepo := repositories.NewActivityLogRepository(config.DB)
+activityLogService := services.NewActivityLogService(activityLogRepo)
+activityLogHandler := handlers.NewActivityLogHandler(activityLogService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -227,6 +231,8 @@ func main() {
 			adminGroup.GET("/collaboration-requests", contactHandler.GetAllCollaborations)
 			adminGroup.PUT("/collaboration-requests/:id/status", contactHandler.UpdateCollaborationStatus)
 			adminGroup.DELETE("/collaboration-requests/:id", contactHandler.DeleteCollaboration)
+		
+			adminGroup.GET("/activity-logs", activityLogHandler.GetAllLogs)
 		}
 	}
 
