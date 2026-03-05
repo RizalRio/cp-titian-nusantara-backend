@@ -1,11 +1,13 @@
 package handlers
 
 import (
-	"backend/internal/models"
-	"backend/internal/services"
 	"net/http"
 
+	"backend/internal/models"
+	"backend/internal/services"
+
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type PageHandler struct {
@@ -20,17 +22,22 @@ func NewPageHandler(service *services.PageService) *PageHandler {
 func (h *PageHandler) Create(c *gin.Context) {
 	var req models.CreatePageRequest
 
-	// Validasi JSON input
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Format input tidak valid. Pastikan semua field wajib diisi."})
 		return
 	}
 
-	// 🔒 Mengambil User ID dari Middleware Auth
 	userID := c.MustGet("user_id").(string)
 
-	// Panggil Service
-	page, err := h.pageService.CreatePage(req, userID)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if uid, err := uuid.Parse(userID); err == nil {
+		userIDPtr = &uid
+	}
+
+	// Panggil Service dengan parameter tambahan
+	page, err := h.pageService.CreatePage(req, userID, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -39,7 +46,6 @@ func (h *PageHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"status": "success", "message": "Halaman berhasil dibuat", "data": page})
 }
 
-// GetAll menangani GET /admin/pages
 func (h *PageHandler) GetAll(c *gin.Context) {
 	pages, err := h.pageService.GetAllPages()
 	if err != nil {
@@ -49,7 +55,6 @@ func (h *PageHandler) GetAll(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "data": pages})
 }
 
-// GetByID menangani GET /admin/pages/:id
 func (h *PageHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 	page, err := h.pageService.GetPageByID(id)
@@ -60,24 +65,14 @@ func (h *PageHandler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "data": page})
 }
 
-// GetBySlug menangani request GET /api/v1/pages/:slug (Publik)
 func (h *PageHandler) GetBySlug(c *gin.Context) {
 	slug := c.Param("slug")
-	
 	page, err := h.pageService.GetPageBySlug(slug)
 	if err != nil {
-		// Jika slug tidak ada, ATAU statusnya masih 'draft', kembalikan 404 Not Found
-		c.JSON(http.StatusNotFound, gin.H{
-			"status":  "error",
-			"message": "Halaman tidak ditemukan",
-		})
+		c.JSON(http.StatusNotFound, gin.H{"status": "error", "message": "Halaman tidak ditemukan"})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"data":   page,
-	})
+	c.JSON(http.StatusOK, gin.H{"status": "success", "data": page})
 }
 
 // Update menangani PUT /admin/pages/:id
@@ -90,10 +85,16 @@ func (h *PageHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// 🔒 Mengambil User ID dari Middleware Auth
 	userID := c.MustGet("user_id").(string)
 
-	page, err := h.pageService.UpdatePage(id, req, userID)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if uid, err := uuid.Parse(userID); err == nil {
+		userIDPtr = &uid
+	}
+
+	page, err := h.pageService.UpdatePage(id, req, userID, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -105,7 +106,17 @@ func (h *PageHandler) Update(c *gin.Context) {
 // Delete menangani DELETE /admin/pages/:id
 func (h *PageHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.pageService.DeletePage(id); err != nil {
+
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	if err := h.pageService.DeletePage(id, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menghapus halaman"})
 		return
 	}

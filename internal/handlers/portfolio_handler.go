@@ -27,7 +27,17 @@ func (h *PortfolioHandler) Create(c *gin.Context) {
 		return
 	}
 
-	portfolio, err := h.service.CreatePortfolio(req)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// Lemparkan parameter log ke service
+	portfolio, err := h.service.CreatePortfolio(req, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -36,7 +46,7 @@ func (h *PortfolioHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"status": "success", "data": portfolio})
 }
 
-// 🌟 GET ALL (Public & Admin) - Mendukung Filter Sektor (Pendidikan, Publik, dll)
+// 🌟 GET ALL (Public & Admin) - Mendukung Filter Sektor
 func (h *PortfolioHandler) GetAll(c *gin.Context) {
 	var params models.PortfolioQueryParams
 	if err := c.ShouldBindQuery(&params); err != nil {
@@ -44,7 +54,7 @@ func (h *PortfolioHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	portfoliosData, totalData, err := h.service.GetAllPortfolios(params) // Pastikan fungsi ini ada di service
+	portfoliosData, totalData, err := h.service.GetAllPortfolios(params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -73,7 +83,7 @@ func (h *PortfolioHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	portfolio, err := h.service.GetPortfolioByID(id) // Pastikan fungsi ini ada di service
+	portfolio, err := h.service.GetPortfolioByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": "error", "message": "Jejak Karya tidak ditemukan"})
 		return
@@ -90,7 +100,7 @@ func (h *PortfolioHandler) GetBySlug(c *gin.Context) {
 		return
 	}
 
-	portfolio, err := h.service.GetPortfolioBySlug(slug) // Pastikan fungsi ini ada di service
+	portfolio, err := h.service.GetPortfolioBySlug(slug)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": "error", "message": "Jejak Karya tidak ditemukan atau belum dipublikasikan"})
 		return
@@ -114,7 +124,17 @@ func (h *PortfolioHandler) Update(c *gin.Context) {
 		return
 	}
 
-	portfolio, err := h.service.UpdatePortfolio(id, req)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// Lemparkan parameter log ke service
+	portfolio, err := h.service.UpdatePortfolio(id, req, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -132,7 +152,17 @@ func (h *PortfolioHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeletePortfolio(id); err != nil { // Pastikan fungsi ini ada di service
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// Lemparkan parameter log ke service
+	if err := h.service.DeletePortfolio(id, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menghapus jejak karya"})
 		return
 	}

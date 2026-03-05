@@ -21,8 +21,8 @@ func NewServiceEcosystemService(repo *repositories.ServiceRepository, db *gorm.D
 	return &ServiceEcosystemService{repo: repo, db: db}
 }
 
-// 🌟 CREATE: Menyimpan Layanan dan Thumbnail Polimorfik
-func (s *ServiceEcosystemService) CreateService(req models.CreateServiceRequest) (*models.Service, error) {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *ServiceEcosystemService) CreateService(req models.CreateServiceRequest, userID *uuid.UUID, ipAddress string) (*models.Service, error) {
 	service := models.Service{
 		Name:             req.Name,
 		Slug:             GenerateSlug(req.Name), 
@@ -31,14 +31,12 @@ func (s *ServiceEcosystemService) CreateService(req models.CreateServiceRequest)
 		IconName:         req.IconName,
 		IsFlagship:       req.IsFlagship,
 		Status:           req.Status,
-		// 🌟 TAMBAHAN BARU
 		ImpactPoints:     req.ImpactPoints, 
 		CTAText:          req.CTAText,
 		CTALink:          req.CTALink,
 	}
 
 	// Injeksi Media Asset (Thumbnail)
-	// GORM otomatis akan mengisi ModelType="Service" dan ModelID=(ID Service Baru)
 	if req.ThumbnailURL != "" {
 		service.Media = []models.MediaAsset{
 			{
@@ -48,7 +46,19 @@ func (s *ServiceEcosystemService) CreateService(req models.CreateServiceRequest)
 		}
 	}
 
-	if err := s.db.Create(&service).Error; err != nil {
+	// 🌟 INJEKSI LOG: Bungkus dengan tx.Transaction agar selaras dengan LogActivity
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&service).Error; err != nil {
+			return err
+		}
+
+		// 🌟 CATAT LOG AKTIVITAS (CREATE)
+		LogActivity(tx, userID, "CREATE", "Services", "Membuat Layanan: "+service.Name, ipAddress, nil, service)
+
+		return nil
+	})
+
+	if err != nil {
 		if strings.Contains(err.Error(), "unique constraint") {
 			return nil, errors.New("nama layanan sudah digunakan, silakan pilih yang lain")
 		}
@@ -70,12 +80,15 @@ func (s *ServiceEcosystemService) GetServiceBySlug(slug string) (*models.Service
 	return s.repo.FindBySlug(slug)
 }
 
-// 🌟 UPDATE: Menggunakan Transaction untuk Integritas Relasi Media
-func (s *ServiceEcosystemService) UpdateService(id uuid.UUID, req models.UpdateServiceRequest) (*models.Service, error) {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *ServiceEcosystemService) UpdateService(id uuid.UUID, req models.UpdateServiceRequest, userID *uuid.UUID, ipAddress string) (*models.Service, error) {
 	service, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("layanan tidak ditemukan")
 	}
+
+	// 🌟 INJEKSI LOG: Ambil snapshot data lama untuk dicatat di log
+	oldDataSnapshot := *service
 
 	// Update Field Dasar
 	if req.Name != "" {
@@ -87,7 +100,7 @@ func (s *ServiceEcosystemService) UpdateService(id uuid.UUID, req models.UpdateS
 	if req.IconName != "" { service.IconName = req.IconName }
 	if req.Status != "" { service.Status = req.Status }
 	
-	// Update Flagship (Menggunakan pointer untuk mendeteksi false)
+	// Update Flagship
 	if req.IsFlagship != nil {
 		service.IsFlagship = *req.IsFlagship
 	}
@@ -120,6 +133,9 @@ func (s *ServiceEcosystemService) UpdateService(id uuid.UUID, req models.UpdateS
 			}
 		}
 
+		// 🌟 CATAT LOG AKTIVITAS (UPDATE)
+		LogActivity(tx, userID, "UPDATE", "Services", "Memperbarui Layanan: "+service.Name, ipAddress, oldDataSnapshot, service)
+
 		return nil
 	})
 
@@ -127,7 +143,14 @@ func (s *ServiceEcosystemService) UpdateService(id uuid.UUID, req models.UpdateS
 	return s.repo.FindByID(id)
 }
 
-func (s *ServiceEcosystemService) DeleteService(id uuid.UUID) error {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *ServiceEcosystemService) DeleteService(id uuid.UUID, userID *uuid.UUID, ipAddress string) error {
+	// 🌟 INJEKSI LOG: Ambil data sebelum dihapus
+	serviceToDelete, err := s.repo.FindByID(id)
+	if err != nil {
+		return errors.New("layanan tidak ditemukan")
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// Cari dan hapus semua media terkait Layanan ini
 		var media []models.MediaAsset
@@ -136,6 +159,10 @@ func (s *ServiceEcosystemService) DeleteService(id uuid.UUID) error {
 			tx.Delete(&m) // Memicu Hook Hapus Fisik
 		}
 		
+		// 🌟 CATAT LOG AKTIVITAS (DELETE)
+		LogActivity(tx, userID, "DELETE", "Services", "Menghapus Layanan: "+serviceToDelete.Name, ipAddress, serviceToDelete, nil)
+
+		// Hapus record utama
 		return s.repo.Delete(id)
 	})
 }

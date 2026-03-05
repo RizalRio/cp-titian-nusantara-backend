@@ -29,8 +29,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// 2. Panggil Service Login
-	token, user, err := h.authService.Login(req)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dari Context Gin
+	ipAddress := c.ClientIP()
+
+	// 2. Panggil Service Login beserta IP Address
+	token, user, err := h.authService.Login(req, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"status":  "error",

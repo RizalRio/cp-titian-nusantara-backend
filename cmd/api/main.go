@@ -30,17 +30,17 @@ func main() {
 	config.ConnectDB()
 
 	userRepo := repositories.NewUserRepository(config.DB)
-	authService := services.NewAuthService(userRepo)
+	authService := services.NewAuthService(userRepo, config.DB)
 	authHandler := handlers.NewAuthHandler(authService)
 
 	// 🌟 INJEKSI DEPENDENSI BARU UNTUK PAGES
 	pageRepo := repositories.NewPageRepository(config.DB)
-	pageService := services.NewPageService(pageRepo)
+	pageService := services.NewPageService(pageRepo, config.DB) // Pastikan PageService menerima db *gorm.DB untuk transaksi log
 	pageHandler := handlers.NewPageHandler(pageService)
 
 	// 🌟 INJEKSI DEPENDENSI UNTUK SETTINGS
 	settingRepo := repositories.NewSettingRepository(config.DB)
-	settingService := services.NewSettingService(settingRepo)
+	settingService := services.NewSettingService(settingRepo, config.DB) // Pastikan SettingService menerima db *gorm.DB untuk transaksi log
 	settingHandler := handlers.NewSettingHandler(settingService)
 
 	// 🌟 INJEKSI DEPENDENSI UNTUK CATEGORY, TAG, POST
@@ -49,8 +49,8 @@ func main() {
 	postRepo := repositories.NewPostRepository(config.DB)
 
 	// Inisialisasi Service untuk Category, Tag, dan Post
-	categoryService := services.NewCategoryService(categoryRepo)
-	tagService := services.NewTagService(tagRepo)
+	categoryService := services.NewCategoryService(categoryRepo, config.DB) // Pastikan CategoryService menerima db *gorm.DB untuk transaksi log
+	tagService := services.NewTagService(tagRepo, config.DB)             // Pastikan TagService menerima db *gorm.DB untuk transaksi log
 	postService := services.NewPostService(postRepo, config.DB) // PostService butuh koneksi DB langsung
 
 	// Inisialisasi Handler untuk Category, Tag, dan Post
@@ -76,12 +76,12 @@ func main() {
 	portfolioHandler := handlers.NewPortfolioHandler(portfolioService)
 
 	contactRepo := repositories.NewContactRepository(config.DB)
-	contactService := services.NewContactService(contactRepo)
+	contactService := services.NewContactService(contactRepo, config.DB) // Pastikan ContactService menerima db *gorm.DB untuk transaksi log
 	contactHandler := handlers.NewContactHandler(contactService)
 
 	activityLogRepo := repositories.NewActivityLogRepository(config.DB)
-activityLogService := services.NewActivityLogService(activityLogRepo)
-activityLogHandler := handlers.NewActivityLogHandler(activityLogService)
+	activityLogService := services.NewActivityLogService(activityLogRepo)
+	activityLogHandler := handlers.NewActivityLogHandler(activityLogService)
 
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()

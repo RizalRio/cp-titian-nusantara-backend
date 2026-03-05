@@ -27,7 +27,16 @@ func (h *ProjectHandler) Create(c *gin.Context) {
 		return
 	}
 
-	project, err := h.service.CreateProject(req)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	project, err := h.service.CreateProject(req, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -44,7 +53,7 @@ func (h *ProjectHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	projectsData, totalData, err := h.service.GetAllProjects(params) // Asumsi fungsi ini sudah Anda tambahkan di Service
+	projectsData, totalData, err := h.service.GetAllProjects(params) 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -114,7 +123,16 @@ func (h *ProjectHandler) Update(c *gin.Context) {
 		return
 	}
 
-	project, err := h.service.UpdateProject(id, req)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	project, err := h.service.UpdateProject(id, req, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -132,7 +150,16 @@ func (h *ProjectHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteProject(id); err != nil {
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	if err := h.service.DeleteProject(id, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menghapus project"})
 		return
 	}

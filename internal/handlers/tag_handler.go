@@ -18,6 +18,7 @@ func NewTagHandler(s *services.TagService) *TagHandler {
 	return &TagHandler{service: s}
 }
 
+// 🌟 CREATE
 func (h *TagHandler) Create(c *gin.Context) {
 	var req models.CreateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -25,7 +26,16 @@ func (h *TagHandler) Create(c *gin.Context) {
 		return
 	}
 
-	tag, err := h.service.CreateTag(req)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	tag, err := h.service.CreateTag(req, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -33,6 +43,7 @@ func (h *TagHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"status": "success", "data": tag})
 }
 
+// 🌟 READ ALL
 func (h *TagHandler) GetAll(c *gin.Context) {
 	tags, err := h.service.GetAllTags()
 	if err != nil {
@@ -42,6 +53,7 @@ func (h *TagHandler) GetAll(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "data": tags})
 }
 
+// 🌟 UPDATE
 func (h *TagHandler) Update(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -55,7 +67,16 @@ func (h *TagHandler) Update(c *gin.Context) {
 		return
 	}
 
-	tag, err := h.service.UpdateTag(id, req)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	tag, err := h.service.UpdateTag(id, req, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -63,6 +84,7 @@ func (h *TagHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "data": tag})
 }
 
+// 🌟 DELETE
 func (h *TagHandler) Delete(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -70,7 +92,16 @@ func (h *TagHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteTag(id); err != nil {
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	if err := h.service.DeleteTag(id, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menghapus tag"})
 		return
 	}

@@ -27,7 +27,17 @@ func (h *ServiceHandler) Create(c *gin.Context) {
 		return
 	}
 
-	service, err := h.service.CreateService(req)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// Lemparkan parameter tambahan ke service
+	service, err := h.service.CreateService(req, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -114,7 +124,17 @@ func (h *ServiceHandler) Update(c *gin.Context) {
 		return
 	}
 
-	service, err := h.service.UpdateService(id, req)
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// Lemparkan parameter tambahan ke service
+	service, err := h.service.UpdateService(id, req, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -132,7 +152,17 @@ func (h *ServiceHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteService(id); err != nil {
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// Lemparkan parameter tambahan ke service
+	if err := h.service.DeleteService(id, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menghapus layanan"})
 		return
 	}

@@ -21,8 +21,8 @@ func NewPortfolioService(repo *repositories.PortfolioRepository, db *gorm.DB) *P
 	return &PortfolioService{repo: repo, db: db}
 }
 
-// 🌟 CREATE PORTFOLIO (Jejak Karya)
-func (s *PortfolioService) CreatePortfolio(req models.CreatePortfolioRequest) (*models.Portfolio, error) {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *PortfolioService) CreatePortfolio(req models.CreatePortfolioRequest, userID *uuid.UUID, ipAddress string) (*models.Portfolio, error) {
 	portfolio := models.Portfolio{
 		Title:      req.Title,
 		Slug:       GenerateSlug(req.Sector),
@@ -68,8 +68,20 @@ func (s *PortfolioService) CreatePortfolio(req models.CreatePortfolioRequest) (*
 		portfolio.Testimonials = testimonials
 	}
 
-	// Simpan ke Database
-	if err := s.db.Create(&portfolio).Error; err != nil {
+	// 🌟 INJEKSI LOG: Bungkus dengan tx.Transaction agar selaras
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// Simpan ke Database
+		if err := tx.Create(&portfolio).Error; err != nil {
+			return err
+		}
+
+		// 🌟 CATAT LOG AKTIVITAS (CREATE)
+		LogActivity(tx, userID, "CREATE", "Portfolios", "Membuat Jejak Karya: "+portfolio.Title, ipAddress, nil, portfolio)
+
+		return nil
+	})
+
+	if err != nil {
 		if strings.Contains(err.Error(), "unique constraint") {
 			return nil, errors.New("judul jejak karya sudah digunakan")
 		}
@@ -80,12 +92,15 @@ func (s *PortfolioService) CreatePortfolio(req models.CreatePortfolioRequest) (*
 	return s.repo.FindByID(portfolio.ID)
 }
 
-// 🌟 UPDATE PORTFOLIO (Jejak Karya)
-func (s *PortfolioService) UpdatePortfolio(id uuid.UUID, req models.UpdatePortfolioRequest) (*models.Portfolio, error) {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *PortfolioService) UpdatePortfolio(id uuid.UUID, req models.UpdatePortfolioRequest, userID *uuid.UUID, ipAddress string) (*models.Portfolio, error) {
 	portfolio, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("jejak karya tidak ditemukan")
 	}
+
+	// 🌟 INJEKSI LOG: Ambil snapshot data lama
+	oldDataSnapshot := *portfolio
 
 	// Update field dasar
 	if req.Title != "" { portfolio.Title = req.Title }
@@ -110,19 +125,17 @@ func (s *PortfolioService) UpdatePortfolio(id uuid.UUID, req models.UpdatePortfo
 			var existing models.MediaAsset
 			err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Portfolio", portfolio.ID, "thumbnail").First(&existing).Error
 			if err == nil {
-				// 🌟 Jika URL berubah, hapus file lama secara eksplisit
 				if existing.FileURL != req.ThumbnailURL {
-					tx.Delete(&existing) // Ini akan memicu AfterDelete Hook
+					tx.Delete(&existing) 
 					tx.Create(&models.MediaAsset{ModelType: "Portfolio", ModelID: portfolio.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
 				}
 			} else if errors.Is(err, gorm.ErrRecordNotFound) {
 				tx.Create(&models.MediaAsset{ModelType: "Portfolio", ModelID: portfolio.ID, MediaType: "thumbnail", FileURL: req.ThumbnailURL})
 			}
 		} else {
-			// 🌟 Ubah Batch Delete menjadi Find and Delete
 			var oldThumb models.MediaAsset
 			if err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Portfolio", portfolio.ID, "thumbnail").First(&oldThumb).Error; err == nil {
-				tx.Delete(&oldThumb) // Memicu Hook
+				tx.Delete(&oldThumb) 
 			}
 		}
 
@@ -131,12 +144,10 @@ func (s *PortfolioService) UpdatePortfolio(id uuid.UUID, req models.UpdatePortfo
 			var oldGalleries []models.MediaAsset
 			tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Portfolio", portfolio.ID, "gallery").Find(&oldGalleries)
 			
-			// 🌟 Hapus satu per satu agar Hook AfterDelete berjalan
 			for _, m := range oldGalleries {
 				tx.Delete(&m)
 			}
 			
-			// Masukkan galeri baru
 			for _, url := range req.GalleryURLs {
 				if url != "" {
 					if err := tx.Create(&models.MediaAsset{ModelType: "Portfolio", ModelID: portfolio.ID, MediaType: "gallery", FileURL: url}).Error; err != nil {
@@ -168,6 +179,9 @@ func (s *PortfolioService) UpdatePortfolio(id uuid.UUID, req models.UpdatePortfo
 			}
 		}
 
+		// 🌟 CATAT LOG AKTIVITAS (UPDATE)
+		LogActivity(tx, userID, "UPDATE", "Portfolios", "Memperbarui Jejak Karya: "+portfolio.Title, ipAddress, oldDataSnapshot, portfolio)
+
 		return nil
 	})
 
@@ -178,31 +192,43 @@ func (s *PortfolioService) UpdatePortfolio(id uuid.UUID, req models.UpdatePortfo
 	return s.repo.FindByID(id)
 }
 
-// 🌟 GET ALL PORTFOLIOS
 func (s *PortfolioService) GetAllPortfolios(params models.PortfolioQueryParams) ([]models.Portfolio, int64, error) {
 	return s.repo.FindAll(params)
 }
 
-// 🌟 GET PORTFOLIO BY ID
 func (s *PortfolioService) GetPortfolioByID(id uuid.UUID) (*models.Portfolio, error) {
 	return s.repo.FindByID(id)
 }
 
-// 🌟 GET PORTFOLIO BY SLUG (Untuk Publik)
 func (s *PortfolioService) GetPortfolioBySlug(slug string) (*models.Portfolio, error) {
 	return s.repo.FindBySlug(slug)
 }
 
-// 🌟 DELETE PORTFOLIO
-func (s *PortfolioService) DeletePortfolio(id uuid.UUID) error {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *PortfolioService) DeletePortfolio(id uuid.UUID, userID *uuid.UUID, ipAddress string) error {
+	// 🌟 INJEKSI LOG: Ambil data sebelum dihapus
+	portfolioToDelete, err := s.repo.FindByID(id)
+	if err != nil {
+		return errors.New("jejak karya tidak ditemukan")
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// Cari dan hapus semua media terkait Program ini
 		var media []models.MediaAsset
-		tx.Where("model_type = ? AND model_id = ?", "Project", id).Find(&media)
+		// 🐛 FIX BUG: Sebelumnya tertulis "Project", diubah menjadi "Portfolio"
+		tx.Where("model_type = ? AND model_id = ?", "Portfolio", id).Find(&media)
 		for _, m := range media {
 			tx.Delete(&m) // Memicu Hook Hapus Fisik
 		}
 		
-		return s.repo.Delete(id)
+		// Hapus record utama menggunakan tx
+		if err := tx.Delete(&models.Portfolio{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+
+		// 🌟 CATAT LOG AKTIVITAS (DELETE)
+		LogActivity(tx, userID, "DELETE", "Portfolios", "Menghapus Jejak Karya: "+portfolioToDelete.Title, ipAddress, portfolioToDelete, nil)
+
+		return nil
 	})
 }

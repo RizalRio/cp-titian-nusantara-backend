@@ -3,14 +3,19 @@ package services
 import (
 	"backend/internal/models"
 	"backend/internal/repositories"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type SettingService struct {
 	repo *repositories.SettingRepository
+	db   *gorm.DB // 🌟 INJEKSI: Diperlukan untuk membungkus log dalam Transaction
 }
 
-func NewSettingService(repo *repositories.SettingRepository) *SettingService {
-	return &SettingService{repo: repo}
+// 🌟 INJEKSI: Tambahkan db *gorm.DB
+func NewSettingService(repo *repositories.SettingRepository, db *gorm.DB) *SettingService {
+	return &SettingService{repo: repo, db: db}
 }
 
 // 🌟 GET: Ubah banyak baris (DB) menjadi 1 DTO (Frontend)
@@ -39,8 +44,11 @@ func (s *SettingService) GetSettingsObject() (models.SiteSettingsDTO, error) {
 	return dto, nil
 }
 
-// 🌟 UPDATE: Ubah 1 DTO (Frontend) menjadi proses Upsert banyak baris (DB)
-func (s *SettingService) UpdateSettings(req models.SiteSettingsDTO) error {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *SettingService) UpdateSettings(req models.SiteSettingsDTO, userID *uuid.UUID, ipAddress string) error {
+	// 🌟 INJEKSI LOG: Ambil snapshot data lama sebelum diperbarui
+	oldDataSnapshot, _ := s.GetSettingsObject()
+
 	// Peta konfigurasi: map[Key] struct{Value, Type}
 	configMap := map[string]struct{ Val, Typ string }{
 		"site_name":     {req.SiteName, "text"},
@@ -56,12 +64,18 @@ func (s *SettingService) UpdateSettings(req models.SiteSettingsDTO) error {
 		"youtube_url":   {req.YoutubeURL, "url"},
 	}
 
-	for key, data := range configMap {
-		// Simpan atau perbarui tiap key ke database
-		if err := s.repo.UpsertSetting(key, data.Val, data.Typ); err != nil {
-			return err
+	// 🌟 INJEKSI LOG: Bungkus proses Upsert di dalam tx.Transaction
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		for key, data := range configMap {
+			// Simpan atau perbarui tiap key ke database
+			if err := s.repo.UpsertSetting(key, data.Val, data.Typ); err != nil {
+				return err
+			}
 		}
-	}
 
-	return nil
+		// 🌟 CATAT LOG AKTIVITAS (UPDATE)
+		LogActivity(tx, userID, "UPDATE", "Settings", "Memperbarui konfigurasi identitas dan pengaturan situs", ipAddress, oldDataSnapshot, req)
+
+		return nil
+	})
 }

@@ -21,7 +21,8 @@ func NewProjectService(repo *repositories.ProjectRepository, db *gorm.DB) *Proje
 	return &ProjectService{repo: repo, db: db}
 }
 
-func (s *ProjectService) CreateProject(req models.CreateProjectRequest) (*models.Project, error) {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *ProjectService) CreateProject(req models.CreateProjectRequest, userID *uuid.UUID, ipAddress string) (*models.Project, error) {
 	project := models.Project{
 		ServiceID:   req.ServiceID,
 		Title:       req.Title,
@@ -72,7 +73,19 @@ func (s *ProjectService) CreateProject(req models.CreateProjectRequest) (*models
 		project.Media = mediaAssets
 	}
 
-	if err := s.db.Create(&project).Error; err != nil {
+	// 🌟 INJEKSI LOG: Bungkus dengan tx.Transaction
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&project).Error; err != nil {
+			return err
+		}
+
+		// 🌟 CATAT LOG AKTIVITAS (CREATE)
+		LogActivity(tx, userID, "CREATE", "Projects", "Membuat Project: "+project.Title, ipAddress, nil, project)
+
+		return nil
+	})
+
+	if err != nil {
 		if strings.Contains(err.Error(), "unique constraint") {
 			return nil, errors.New("judul project sudah digunakan")
 		}
@@ -82,9 +95,13 @@ func (s *ProjectService) CreateProject(req models.CreateProjectRequest) (*models
 	return s.repo.FindByID(project.ID)
 }
 
-func (s *ProjectService) UpdateProject(id uuid.UUID, req models.UpdateProjectRequest) (*models.Project, error) {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *ProjectService) UpdateProject(id uuid.UUID, req models.UpdateProjectRequest, userID *uuid.UUID, ipAddress string) (*models.Project, error) {
 	project, err := s.repo.FindByID(id)
 	if err != nil { return nil, errors.New("project tidak ditemukan") }
+
+	// 🌟 INJEKSI LOG: Ambil snapshot data lama
+	oldDataSnapshot := *project
 
 	// Update field dasar
 	if req.Title != "" { project.Title = req.Title; project.Slug = GenerateSlug(req.Title) }
@@ -160,6 +177,9 @@ func (s *ProjectService) UpdateProject(id uuid.UUID, req models.UpdateProjectReq
 			}
 		}
 
+		// 🌟 CATAT LOG AKTIVITAS (UPDATE)
+		LogActivity(tx, userID, "UPDATE", "Projects", "Memperbarui Project: "+project.Title, ipAddress, oldDataSnapshot, project)
+
 		return nil
 	})
 
@@ -175,11 +195,18 @@ func (s *ProjectService) GetProjectByID(id uuid.UUID) (*models.Project, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *ProjectService) GetProjectBySlug(slug string) (*models.Project, error) {	
+func (s *ProjectService) GetProjectBySlug(slug string) (*models.Project, error) {   
 	return s.repo.FindBySlug(slug)
 }
 
-func (s *ProjectService) DeleteProject(id uuid.UUID) error {
+// 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
+func (s *ProjectService) DeleteProject(id uuid.UUID, userID *uuid.UUID, ipAddress string) error {
+	// 🌟 INJEKSI LOG: Ambil data sebelum dihapus
+	projectToDelete, err := s.repo.FindByID(id)
+	if err != nil {
+		return errors.New("project tidak ditemukan")
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// Cari dan hapus semua media terkait Program ini
 		var media []models.MediaAsset
@@ -188,6 +215,14 @@ func (s *ProjectService) DeleteProject(id uuid.UUID) error {
 			tx.Delete(&m) // Memicu Hook Hapus Fisik
 		}
 		
-		return s.repo.Delete(id)
+		// Hapus record utama
+		if err := tx.Delete(&models.Project{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+
+		// 🌟 CATAT LOG AKTIVITAS (DELETE)
+		LogActivity(tx, userID, "DELETE", "Projects", "Menghapus Project: "+projectToDelete.Title, ipAddress, projectToDelete, nil)
+
+		return nil
 	})
 }

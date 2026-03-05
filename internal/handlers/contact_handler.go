@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ContactHandler struct {
@@ -18,6 +19,7 @@ func NewContactHandler(service *services.ContactService) *ContactHandler {
 	return &ContactHandler{service: service}
 }
 
+// (Publik) Submit Message & Collaboration tetap sama...
 func (h *ContactHandler) SubmitMessage(c *gin.Context) {
 	var req models.CreateContactRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -104,7 +106,17 @@ func (h *ContactHandler) GetAllCollaborations(c *gin.Context) {
 // 🌟 ADMIN: MARK MESSAGE AS READ
 func (h *ContactHandler) MarkMessageAsRead(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.service.MarkMessageAsRead(id); err != nil {
+
+	// 🌟 INJEKSI LOG
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	if err := h.service.MarkMessageAsRead(id, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menandai pesan"})
 		return
 	}
@@ -115,7 +127,6 @@ func (h *ContactHandler) MarkMessageAsRead(c *gin.Context) {
 func (h *ContactHandler) UpdateCollaborationStatus(c *gin.Context) {
 	id := c.Param("id")
 	
-	// Struct DTO kecil khusus untuk menerima status
 	var req struct {
 		Status string `json:"status" binding:"required,oneof=pending reviewed accepted rejected"`
 	}
@@ -125,7 +136,16 @@ func (h *ContactHandler) UpdateCollaborationStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.UpdateCollaborationStatus(id, req.Status); err != nil {
+	// 🌟 INJEKSI LOG
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	if err := h.service.UpdateCollaborationStatus(id, req.Status, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal mengubah status kolaborasi"})
 		return
 	}
@@ -135,7 +155,17 @@ func (h *ContactHandler) UpdateCollaborationStatus(c *gin.Context) {
 // 🌟 ADMIN: DELETE MESSAGE
 func (h *ContactHandler) DeleteMessage(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.service.DeleteMessage(id); err != nil {
+
+	// 🌟 INJEKSI LOG
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	if err := h.service.DeleteMessage(id, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menghapus pesan"})
 		return
 	}
@@ -145,10 +175,19 @@ func (h *ContactHandler) DeleteMessage(c *gin.Context) {
 // 🌟 ADMIN: DELETE COLLABORATION
 func (h *ContactHandler) DeleteCollaboration(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.service.DeleteCollaboration(id); err != nil {
+
+	// 🌟 INJEKSI LOG
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	if err := h.service.DeleteCollaboration(id, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menghapus pengajuan kolaborasi"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Pengajuan kolaborasi berhasil dihapus"})
 }
-

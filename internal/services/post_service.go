@@ -22,7 +22,8 @@ func NewPostService(repo *repositories.PostRepository, db *gorm.DB) *PostService
 	return &PostService{repo: repo, db: db}
 }
 
-func (s *PostService) CreatePost(req models.CreatePostRequest, authorID uuid.UUID) (*models.Post, error) {
+// 🌟 INJEKSI: Tambahkan userID dan ipAddress
+func (s *PostService) CreatePost(req models.CreatePostRequest, authorID uuid.UUID, userID *uuid.UUID, ipAddress string) (*models.Post, error) {
 	post := models.Post{
 		Title:      req.Title,
 		Slug:       GenerateSlug(req.Title),
@@ -44,8 +45,7 @@ func (s *PostService) CreatePost(req models.CreatePostRequest, authorID uuid.UUI
 	}
 	post.Tags = tags
 
-	// 🌟 INJEKSI MEDIA ASSET (THUMBNAIL)
-	// GORM otomatis akan mengisikan model_type="Post" dan model_id=(ID Artikel Baru)
+	// INJEKSI MEDIA ASSET (THUMBNAIL)
 	if req.ThumbnailURL != "" {
 		post.Media = []models.MediaAsset{
 			{
@@ -55,7 +55,19 @@ func (s *PostService) CreatePost(req models.CreatePostRequest, authorID uuid.UUI
 		}
 	}
 
-	if err := s.db.Create(&post).Error; err != nil {
+	// 🌟 INJEKSI: Bungkus dengan tx.Transaction agar selaras dengan LogActivity
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&post).Error; err != nil {
+			return err
+		}
+
+		// 🌟 INJEKSI LOG AKTIVITAS (CREATE)
+		LogActivity(tx, userID, "CREATE", "Posts", "Membuat Artikel: "+post.Title, ipAddress, nil, post)
+
+		return nil
+	})
+
+	if err != nil {
 		if strings.Contains(err.Error(), "unique constraint") {
 			return nil, errors.New("judul artikel sudah digunakan, silakan pilih yang lain")
 		}
@@ -73,9 +85,7 @@ func (s *PostService) GetPostByID(id uuid.UUID) (*models.Post, error) {
 	return s.repo.FindByID(id)
 }
 
-// 🌟 GET POST BY SLUG
 func (s *PostService) GetPostBySlug(slug string) (*models.Post, error) {
-	// Panggil repository
 	post, err := s.repo.FindBySlug(slug)
 	if err != nil {
 		return nil, errors.New("artikel tidak ditemukan atau belum dipublikasikan")
@@ -83,11 +93,15 @@ func (s *PostService) GetPostBySlug(slug string) (*models.Post, error) {
 	return post, nil
 }
 
-func (s *PostService) UpdatePost(id uuid.UUID, req models.UpdatePostRequest) (*models.Post, error) {
+// 🌟 INJEKSI: Tambahkan userID dan ipAddress
+func (s *PostService) UpdatePost(id uuid.UUID, req models.UpdatePostRequest, userID *uuid.UUID, ipAddress string) (*models.Post, error) {
 	post, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("artikel tidak ditemukan")
 	}
+
+	// 🌟 INJEKSI: Clone data lama untuk log
+	oldDataSnapshot := *post
 
 	if req.Title != "" {
 		post.Title = req.Title
@@ -115,7 +129,7 @@ func (s *PostService) UpdatePost(id uuid.UUID, req models.UpdatePostRequest) (*m
 		}
 		if err := tx.Model(post).Association("Tags").Replace(newTags); err != nil { return err }
 
-		// 🌟 LOGIKA UPDATE THUMBNAIL POLIMORFIK
+		// LOGIKA UPDATE THUMBNAIL POLIMORFIK
 		if req.ThumbnailURL != "" {
 			var existing models.MediaAsset
 			err := tx.Where("model_type = ? AND model_id = ? AND media_type = ?", "Post", post.ID, "thumbnail").First(&existing).Error
@@ -134,6 +148,9 @@ func (s *PostService) UpdatePost(id uuid.UUID, req models.UpdatePostRequest) (*m
 			}
 		}
 
+		// 🌟 INJEKSI LOG AKTIVITAS (UPDATE)
+		LogActivity(tx, userID, "UPDATE", "Posts", "Memperbarui Artikel: "+post.Title, ipAddress, oldDataSnapshot, post)
+
 		return nil
 	})
 
@@ -141,7 +158,14 @@ func (s *PostService) UpdatePost(id uuid.UUID, req models.UpdatePostRequest) (*m
 	return s.repo.FindByID(id)
 }
 
-func (s *PostService) DeletePost(id uuid.UUID) error {
+// 🌟 INJEKSI: Tambahkan userID dan ipAddress
+func (s *PostService) DeletePost(id uuid.UUID, userID *uuid.UUID, ipAddress string) error {
+	// 🌟 INJEKSI: Ambil data artikel sebelum dihapus untuk dimasukkan ke Log
+	postToDelete, err := s.repo.FindByID(id)
+	if err != nil {
+		return errors.New("artikel tidak ditemukan")
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// 1. Cari dan hapus media secara eksplisit agar Hook berjalan
 		var media []models.MediaAsset
@@ -153,6 +177,9 @@ func (s *PostService) DeletePost(id uuid.UUID) error {
 		// 2. Hapus relasi tags (jika tidak cascade)
 		tx.Exec("DELETE FROM post_tags WHERE post_id = ?", id)
 		
+		// 🌟 INJEKSI LOG AKTIVITAS (DELETE)
+		LogActivity(tx, userID, "DELETE", "Posts", "Menghapus Artikel: "+postToDelete.Title, ipAddress, postToDelete, nil)
+
 		// 3. Baru panggil repository untuk menghapus Post
 		return s.repo.Delete(id)
 	})

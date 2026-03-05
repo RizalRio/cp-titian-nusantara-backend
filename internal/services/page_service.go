@@ -7,69 +7,82 @@ import (
 	"backend/internal/models"
 	"backend/internal/repositories"
 
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type PageService struct {
 	pageRepo *repositories.PageRepository
+	db       *gorm.DB // 🌟 INJEKSI: Diperlukan untuk Database Transaction pada Log
 }
 
-func NewPageService(repo *repositories.PageRepository) *PageService {
-	return &PageService{pageRepo: repo}
+// 🌟 INJEKSI: Tambahkan db *gorm.DB
+func NewPageService(repo *repositories.PageRepository, db *gorm.DB) *PageService {
+	return &PageService{pageRepo: repo, db: db}
 }
 
-// CreatePage memproses pembuatan halaman baru
-func (s *PageService) CreatePage(req models.CreatePageRequest, userID string) (*models.Page, error) {
+// 🌟 INJEKSI: Tambahkan parameter userIDPtr dan ipAddress
+func (s *PageService) CreatePage(req models.CreatePageRequest, userID string, userIDPtr *uuid.UUID, ipAddress string) (*models.Page, error) {
 	// Konversi input DTO ke Model Database
 	page := &models.Page{
 		Title:           req.Title,
 		Slug:            req.Slug,
 		TemplateName:    req.TemplateName,
-		ContentJSON:     datatypes.JSON(req.ContentJSON), // Konversi aman dari json.RawMessage ke datatypes.JSON
+		ContentJSON:     datatypes.JSON(req.ContentJSON),
 		MetaTitle:       req.MetaTitle,
 		MetaDescription: req.MetaDescription,
 		Status:          req.Status,
 		CreatedBy:       userID, // 🔒 Aman: Diambil dari token admin yang login
 	}
 
-	// Jika admin langsung memilih status "published", catat waktu rilisnya
 	if req.Status == "published" {
 		now := time.Now()
 		page.PublishedAt = &now
 	}
 
-	// Simpan ke database
-	err := s.pageRepo.Create(page)
+	// 🌟 INJEKSI LOG: Bungkus dengan tx.Transaction
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// Simpan ke database menggunakan tx
+		if err := tx.Create(page).Error; err != nil {
+			return errors.New("gagal menyimpan halaman, pastikan slug unik dan belum digunakan")
+		}
+
+		// 🌟 CATAT LOG AKTIVITAS (CREATE)
+		LogActivity(tx, userIDPtr, "CREATE", "Pages", "Membuat Halaman: "+page.Title, ipAddress, nil, page)
+
+		return nil
+	})
+
 	if err != nil {
-		// Menangkap error jika Slug sudah dipakai (Unique Constraint)
-		return nil, errors.New("gagal menyimpan halaman, pastikan slug unik dan belum digunakan")
+		return nil, err
 	}
 
 	return page, nil
 }
 
-// GetAllPages mengambil semua data halaman
 func (s *PageService) GetAllPages() ([]models.Page, error) {
 	return s.pageRepo.FindAll()
 }
 
-// GetPageByID mengambil detail satu halaman
 func (s *PageService) GetPageByID(id string) (*models.Page, error) {
 	return s.pageRepo.FindByID(id)
 }
 
-// GetPageBySlug mengambil data halaman untuk ditampilkan ke pengunjung publik
 func (s *PageService) GetPageBySlug(slug string) (*models.Page, error) {
 	return s.pageRepo.FindBySlug(slug)
 }
 
-// UpdatePage memproses pembaruan data halaman
-func (s *PageService) UpdatePage(id string, req models.UpdatePageRequest, userID string) (*models.Page, error) {
+// 🌟 INJEKSI: Tambahkan parameter userIDPtr dan ipAddress
+func (s *PageService) UpdatePage(id string, req models.UpdatePageRequest, userID string, userIDPtr *uuid.UUID, ipAddress string) (*models.Page, error) {
 	// 1. Cari data lamanya dulu
 	page, err := s.pageRepo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("halaman tidak ditemukan")
 	}
+
+	// 🌟 INJEKSI: Ambil snapshot data lama untuk log
+	oldDataSnapshot := *page
 
 	// 2. Timpa data lama dengan data baru (jika diisi)
 	if req.Title != "" { page.Title = req.Title }
@@ -81,7 +94,6 @@ func (s *PageService) UpdatePage(id string, req models.UpdatePageRequest, userID
 
 	// 3. Logika untuk status dan published_at
 	if req.Status != "" {
-		// Jika sebelumnya draft dan sekarang di-publish
 		if page.Status != "published" && req.Status == "published" {
 			now := time.Now()
 			page.PublishedAt = &now
@@ -90,18 +102,46 @@ func (s *PageService) UpdatePage(id string, req models.UpdatePageRequest, userID
 	}
 
 	// 4. Catat siapa yang mengubah data ini
-	page.UpdatedBy = &userID // 🔒 Aman: Diambil dari token admin
+	page.UpdatedBy = &userID 
 
-	// 5. Simpan pembaruan
-	err = s.pageRepo.Update(page)
+	// 🌟 INJEKSI LOG: Bungkus dengan tx.Transaction
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// Simpan pembaruan menggunakan tx
+		if err := tx.Save(page).Error; err != nil {
+			return errors.New("gagal memperbarui halaman, periksa kembali input Anda")
+		}
+
+		// 🌟 CATAT LOG AKTIVITAS (UPDATE)
+		LogActivity(tx, userIDPtr, "UPDATE", "Pages", "Memperbarui Halaman: "+page.Title, ipAddress, oldDataSnapshot, page)
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, errors.New("gagal memperbarui halaman, periksa kembali input Anda")
+		return nil, err
 	}
 
 	return page, nil
 }
 
-// DeletePage menghapus halaman (Soft Delete)
-func (s *PageService) DeletePage(id string) error {
-	return s.pageRepo.Delete(id)
+// 🌟 INJEKSI: Tambahkan parameter userIDPtr dan ipAddress
+func (s *PageService) DeletePage(id string, userIDPtr *uuid.UUID, ipAddress string) error {
+	// 🌟 INJEKSI: Ambil data sebelum dihapus untuk dimasukkan ke log
+	pageToDelete, err := s.pageRepo.FindByID(id)
+	if err != nil {
+		return errors.New("halaman tidak ditemukan")
+	}
+
+	// 🌟 INJEKSI LOG: Bungkus dengan tx.Transaction
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Hapus menggunakan tx
+		if err := tx.Delete(&models.Page{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+
+		// 🌟 CATAT LOG AKTIVITAS (DELETE)
+		LogActivity(tx, userIDPtr, "DELETE", "Pages", "Menghapus Halaman: "+pageToDelete.Title, ipAddress, pageToDelete, nil)
+
+		return nil
+	})
 }

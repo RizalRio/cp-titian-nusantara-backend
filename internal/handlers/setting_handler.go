@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type SettingHandler struct {
@@ -32,7 +33,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	
 	// Bind JSON flat object dari Frontend ke Struct DTO
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// 🌟 KITA TAMBAHKAN err.Error() AGAR DETAILNYA MUNCUL DI FRONTEND
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status": "error", 
 			"message": "Format data tidak valid. Detail: " + err.Error(),
@@ -40,7 +40,17 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.UpdateSettings(req); err != nil {
+	// 🌟 INJEKSI LOG: Ekstrak IP Address dan parsing UUID pengguna dari token JWT
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// 🌟 INJEKSI LOG: Lemparkan parameter ID dan IP ke service
+	if err := h.service.UpdateSettings(req, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menyimpan pengaturan"})
 		return
 	}

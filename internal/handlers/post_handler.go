@@ -40,8 +40,11 @@ func (h *PostHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Lemparkan data ke service, beserta ID pembuatnya
-	post, err := h.service.CreatePost(req, authorID)
+	// 🌟 INJEKSI LOG: Ambil IP Address
+	ipAddress := c.ClientIP()
+
+	// Lemparkan data ke service, beserta ID pembuatnya dan data Log
+	post, err := h.service.CreatePost(req, authorID, &authorID, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -130,7 +133,17 @@ func (h *PostHandler) Update(c *gin.Context) {
 		return
 	}
 
-	post, err := h.service.UpdatePost(id, req)
+	// 🌟 INJEKSI LOG: Ekstrak UserID dan IP Address
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// 🌟 INJEKSI LOG: Panggil service dengan tambahan parameter
+	post, err := h.service.UpdatePost(id, req, userIDPtr, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
@@ -146,7 +159,17 @@ func (h *PostHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeletePost(id); err != nil {
+	// 🌟 INJEKSI LOG: Ekstrak UserID dan IP Address
+	ipAddress := c.ClientIP()
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// 🌟 INJEKSI LOG: Panggil service dengan tambahan parameter
+	if err := h.service.DeletePost(id, userIDPtr, ipAddress); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal menghapus artikel"})
 		return
 	}
