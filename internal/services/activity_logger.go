@@ -4,26 +4,37 @@ import (
 	"encoding/json"
 	"log"
 
-	"backend/internal/models"
+	"backend/internal/models" // Sesuaikan path jika berbeda
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 // LogActivity mencatat aktivitas ke tabel activity_logs.
-// Wajib menggunakan tx (*gorm.DB) dari dalam blok tx.Transaction agar selaras dengan rollback/commit.
 func LogActivity(tx *gorm.DB, userID *uuid.UUID, action, module, description, ipAddress string, oldData, newData interface{}) {
-	var oldDataJSON, newDataJSON string
+	
+	// 🌟 SOLUSI ANTI-PELURU: Gunakan objek JSON kosong "{}" alih-alih "null" atau ""
+	oldDataJSON := "{}"
+	newDataJSON := "{}"
 
+	// Parsing Data Lama
 	if oldData != nil {
 		if b, err := json.Marshal(oldData); err == nil {
-			oldDataJSON = string(b)
+			str := string(b)
+			// Pastikan hasil marshal bukan string kosong atau sekadar "null"
+			if str != "" && str != "null" {
+				oldDataJSON = str
+			}
 		}
 	}
 
+	// Parsing Data Baru
 	if newData != nil {
 		if b, err := json.Marshal(newData); err == nil {
-			newDataJSON = string(b)
+			str := string(b)
+			if str != "" && str != "null" {
+				newDataJSON = str
+			}
 		}
 	}
 
@@ -32,8 +43,8 @@ func LogActivity(tx *gorm.DB, userID *uuid.UUID, action, module, description, ip
 		Action:      action,
 		Module:      module,
 		Description: description,
-		OldData:     oldDataJSON,
-		NewData:     newDataJSON,
+		OldData:     oldDataJSON, // Pasti berisi minimal "{}"
+		NewData:     newDataJSON, // Pasti berisi minimal "{}"
 		IPAddress:   ipAddress,
 	}
 
