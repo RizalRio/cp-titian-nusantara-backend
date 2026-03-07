@@ -31,9 +31,12 @@ func main() {
 	userRepo := repositories.NewUserRepository(config.DB)
 	authService := services.NewAuthService(userRepo, config.DB)
 	authHandler := handlers.NewAuthHandler(authService)
+	userService := services.NewUserService(userRepo, config.DB)
+	userHandler := handlers.NewUserHandler(userService)
 
 	dashboardService := services.NewDashboardService(config.DB)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
+
 
 	// 🌟 INJEKSI DEPENDENSI BARU UNTUK PAGES
 	pageRepo := repositories.NewPageRepository(config.DB)
@@ -150,6 +153,15 @@ func main() {
 			adminGroup.GET("/dashboard-stats", dashboardHandler.GetStats)
 			adminGroup.POST("/auth/logout", authHandler.Logout)
 
+			usersGroup := adminGroup.Group("/users")
+			{
+				usersGroup.GET("", userHandler.GetAll)
+				usersGroup.GET("/:id", userHandler.GetByID)
+				usersGroup.POST("", userHandler.Create)
+				usersGroup.PUT("/:id", userHandler.Update)
+				usersGroup.DELETE("/:id", userHandler.Delete)
+			}
+			
 			// 🌟 CRUD ROUTES UNTUK PAGES
 			pagesGroup := adminGroup.Group("/pages")
 			{
