@@ -148,6 +148,7 @@ func main() {
 		adminGroup.Use(middleware.RequireAuth()) // Pasang satpam di sini!
 		{
 			adminGroup.GET("/dashboard-stats", dashboardHandler.GetStats)
+			adminGroup.POST("/auth/logout", authHandler.Logout)
 
 			// 🌟 CRUD ROUTES UNTUK PAGES
 			pagesGroup := adminGroup.Group("/pages")

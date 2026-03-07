@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type AuthHandler struct {
@@ -50,5 +51,35 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"token": token,
 			"user":  user, // PasswordHash otomatis tidak ikut terkirim karena `json:"-"` di model
 		},
+	})
+}
+
+// 🌟 FUNGSI BARU: LOGOUT
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// 1. Ekstrak IP Address
+	ipAddress := c.ClientIP()
+
+	// 2. Ekstrak User ID dari Middleware JWT
+	var userIDPtr *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			userIDPtr = &uid
+		}
+	}
+
+	// 3. Panggil Service Logout untuk merekam aktivitas
+	if err := h.authService.Logout(userIDPtr, ipAddress); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Gagal mencatat log aktivitas keluar",
+		})
+		return
+	}
+
+	// 4. Kirim Response Sukses
+	// Catatan: Penghapusan token asli (cookie/localStorage) tetap dilakukan oleh Frontend.
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Berhasil logout",
 	})
 }

@@ -72,3 +72,11 @@ func (s *AuthService) Login(req models.LoginRequest, ipAddress string) (string, 
 
 	return token, user, nil
 }
+
+func (s *AuthService) Logout(userID *uuid.UUID, ipAddress string) error {
+	// Catat aktivitas logout ke dalam database
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		LogActivity(tx, userID, "LOGOUT", "Auth", "Pengguna keluar dari sistem CMS", ipAddress, nil, nil)
+		return nil
+	})
+}
