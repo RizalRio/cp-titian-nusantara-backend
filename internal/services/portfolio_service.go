@@ -23,13 +23,22 @@ func NewPortfolioService(repo *repositories.PortfolioRepository, db *gorm.DB) *P
 
 // 🌟 INJEKSI LOG: Tambahkan parameter userID dan ipAddress
 func (s *PortfolioService) CreatePortfolio(req models.CreatePortfolioRequest, userID *uuid.UUID, ipAddress string) (*models.Portfolio, error) {
+	var locations []models.PortfolioLocation
+	for _, l := range req.Locations {
+		locations = append(locations, models.PortfolioLocation{
+			Name: l.Name,
+			Lat:  l.Lat,
+			Lng:  l.Lng,
+		})
+	}
+	
 	portfolio := models.Portfolio{
 		Title:      req.Title,
 		Slug:       GenerateSlug(req.Sector),
 		Sector:     req.Sector,
 		ShortStory: req.ShortStory,
 		Impact:     req.Impact,
-		Location:   req.Location,
+		Locations:  locations,
 		Status:     req.Status,
 	}
 
@@ -110,7 +119,17 @@ func (s *PortfolioService) UpdatePortfolio(id uuid.UUID, req models.UpdatePortfo
 	}
 	if req.ShortStory != "" { portfolio.ShortStory = req.ShortStory }
 	if req.Impact != "" { portfolio.Impact = req.Impact }
-	if req.Location != "" { portfolio.Location = req.Location }
+	if req.Locations != nil {
+		var newLocs []models.PortfolioLocation
+		for _, l := range req.Locations {
+			newLocs = append(newLocs, models.PortfolioLocation{
+				Name: l.Name,
+				Lat:  l.Lat,
+				Lng:  l.Lng,
+			})
+		}
+		portfolio.Locations = newLocs // UPDATE LOKASI
+	}
 	if req.Status != "" { portfolio.Status = req.Status }
 
 	// 🔒 DATABASE TRANSACTION UNTUK MEDIA & TESTIMONI

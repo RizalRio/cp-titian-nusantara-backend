@@ -8,12 +8,18 @@ type TestimonialRequest struct {
 	Order      int    `json:"order"`
 }
 
+type LocationRequest struct {
+	Name string  `json:"name" binding:"required"`
+	Lat  float64 `json:"lat" binding:"required"`
+	Lng  float64 `json:"lng" binding:"required"`
+}
+
 type CreatePortfolioRequest struct {
 	Title        string               `json:"title" binding:"required,min=3"`
 	Sector       string               `json:"sector" binding:"required"` // 🌟 HAPUS validasi oneof di baris ini
 	ShortStory   string               `json:"short_story" binding:"required"`
 	Impact       string               `json:"impact" binding:"required"`
-	Location     string               `json:"location" binding:"required"`
+	Locations    []LocationRequest    `json:"locations" binding:"required,min=1"`
 	Status       string               `json:"status" binding:"required,oneof=draft published"`
 	ThumbnailURL string               `json:"thumbnail_url"`
 	GalleryURLs  []string             `json:"gallery_urls"`
@@ -25,7 +31,7 @@ type UpdatePortfolioRequest struct {
 	Sector       string               `json:"sector"` // 🌟 HAPUS validasi oneof di baris ini
 	ShortStory   string               `json:"short_story"`
 	Impact       string               `json:"impact"`
-	Location     string               `json:"location"`
+	Locations    []LocationRequest    `json:"locations"`
 	Status       string               `json:"status" binding:"omitempty,oneof=draft published"`
 	ThumbnailURL string               `json:"thumbnail_url"`
 	GalleryURLs  []string             `json:"gallery_urls"`
