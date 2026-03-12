@@ -88,6 +88,11 @@ func main() {
 	activityLogService := services.NewActivityLogService(activityLogRepo)
 	activityLogHandler := handlers.NewActivityLogHandler(activityLogService)
 
+	// 🌟 INISIALISASI TESTIMONI (Tambahkan di bagian inisiasi dependencies)
+	testimonialRepo := repositories.NewTestimonialRepository(config.DB)
+	testimonialService := services.NewTestimonialService(testimonialRepo)
+	testimonialHandler := handlers.NewTestimonialHandler(testimonialService)
+
 	// 3. Setup Framework Gin (Router)
 	r := gin.Default()
 
@@ -145,6 +150,9 @@ func main() {
 		// 🌟 ENDPOINT KONTAK
 		v1.POST("/contact-messages", contactHandler.SubmitMessage)
 		v1.POST("/collaboration-requests", contactHandler.SubmitCollaboration)
+
+		// 🌟 ENDPOINT TESTIMONI
+		v1.GET("/testimonials", testimonialHandler.GetAll)
 
 		// 🌟 ENDPOINT ADMIN (Dilindungi Middleware)
 		adminGroup := v1.Group("/admin")
